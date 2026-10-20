@@ -156,7 +156,7 @@ const commit = 'a'.repeat(40), base = 'https://raw.githubusercontent.com/agarcia
 const publicar = (cambiar) => {
   const man = JSON.parse(fs.readFileSync(RAIZ + 'dist/version.json', 'utf8'));
   man.version = '9.9.9';
-  estado.web['https://api.github.com/repos/agarcia-poz/certificados-pastoral/commits/main'] = { code: 200, text: JSON.stringify({ sha: commit }) };
+  estado.web['https://github.com/agarcia-poz/certificados-pastoral.git/info/refs?service=git-upload-pack'] = { code: 200, text: '001e# service=git-upload-pack\n0000015a' + commit + ' HEAD\u0000multi_ack\n003f' + commit + ' refs/heads/main\n0000' };
   estado.web[base + 'version.json'] = { code: 200, text: JSON.stringify(man) };
   man.archivos.forEach(a => { estado.web[base + a.archivo] = { code: 200, text: fs.readFileSync(RAIZ + 'dist/' + a.archivo, 'utf8') + (cambiar === a.archivo ? '// manipulado' : '') }; });
 };

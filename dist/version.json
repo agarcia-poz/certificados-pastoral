@@ -1,13 +1,13 @@
 {
-  "version": "2.1.0",
+  "version": "2.1.1",
   "fecha": "2026-10-20",
-  "novedades": "- La app se actualiza sola desde GitHub: menú ⛪ Certificados > 🔄 Actualizar la app.\n- Instalación sin programas: se pegan dos textos en Apps Script.\n- Diseño por defecto: franjas verdes arriba y abajo (color cambiable, admite fondo).\n- El logo de los correos va dentro de la app.",
+  "novedades": "- Instalación y actualización sin depender de la API de GitHub (evita el error 403 por límite de consultas).",
   "archivos": [
     {
       "archivo": "Codigo.gs",
       "nombre": "Codigo",
       "tipo": "SERVER_JS",
-      "sha256": "e68eb953ec59140dade4e87751ecb0c3bafd1035f0cb7edc9e186b0591435db1"
+      "sha256": "c1746f2baaee0deda2527bf96063276480589fff9b2a2e963ecf45a7f98c2e47"
     },
     {
       "archivo": "Editor.html",

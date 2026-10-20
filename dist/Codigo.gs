@@ -13,7 +13,7 @@
  * ============================================================================
  */
 
-const VERSION_APP = '2.1.0';
+const VERSION_APP = '2.1.1';
 
 // ─────────────────────────────── CONFIGURACIÓN TÉCNICA ──────────────────────
 // Los firmantes, cargos y correos de aviso se cambian en la hoja «Ajustes», no aquí.
@@ -1169,8 +1169,7 @@ function descargarPaquete_(repo, rama) {
     return res.getContentText('UTF-8');
   };
   // Se fija el commit para que todos los archivos sean de la misma versión
-  const commit = JSON.parse(get('https://api.github.com/repos/' + repo + '/commits/' + encodeURIComponent(rama))).sha;
-  if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('No se pudo leer la última versión del repositorio.');
+  const commit = ultimoCommit_(repo, rama);
   const base = 'https://raw.githubusercontent.com/' + repo + '/' + commit + '/dist/';
   const manifiesto = JSON.parse(get(base + 'version.json'));
   const archivos = manifiesto.archivos.map(function (a) {
@@ -1181,6 +1180,23 @@ function descargarPaquete_(repo, rama) {
   });
   if (!archivos.some(function (a) { return a.name === 'appsscript'; })) throw new Error('Paquete sin manifiesto.');
   return { version: manifiesto.version, fecha: manifiesto.fecha, novedades: manifiesto.novedades || '', commit: commit, archivos: archivos };
+}
+
+/**
+ * Último commit de una rama, leído del protocolo git de GitHub (no tiene el límite de 60 consultas
+ * por hora de la API, que los servidores de Google agotan al compartir IP). Si falla, se usa el
+ * nombre de la rama: las huellas de version.json siguen garantizando que los archivos coinciden.
+ */
+function ultimoCommit_(repo, rama) {
+  try {
+    const res = UrlFetchApp.fetch('https://github.com/' + repo + '.git/info/refs?service=git-upload-pack',
+      { muteHttpExceptions: true, headers: { 'User-Agent': 'git/2.40 certificados-pastoral' } });
+    if (res.getResponseCode() === 200) {
+      const m = res.getContentText().match(new RegExp('([0-9a-f]{40}) refs/heads/' + rama.replace(/[^\w.-]/g, '') + '\\n'));
+      if (m) return m[1];
+    }
+  } catch (err) { }
+  return rama;
 }
 
 function escribirProyecto_(scriptId, archivos) {

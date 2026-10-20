@@ -1,5 +1,8 @@
 # Novedades
 
+## 2.1.1 (2026-10-20)
+- Instalación y actualización sin depender de la API de GitHub (evita el error 403 por límite de consultas).
+
 ## 2.1.0 (2026-10-20)
 - La app se actualiza sola desde GitHub: menú ⛪ Certificados > 🔄 Actualizar la app.
 - Instalación sin programas: se pegan dos textos en Apps Script.

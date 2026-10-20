@@ -14,7 +14,7 @@ function instalarDesdeGitHub() {
     if (res.getResponseCode() !== 200) throw new Error('GitHub respondió ' + res.getResponseCode() + ' en ' + url);
     return res.getContentText('UTF-8');
   };
-  const commit = JSON.parse(get('https://api.github.com/repos/' + REPO + '/commits/' + RAMA)).sha;
+  const commit = ultimoCommit_(REPO, RAMA);
   const base = 'https://raw.githubusercontent.com/' + REPO + '/' + commit + '/dist/';
   const manifiesto = JSON.parse(get(base + 'version.json'));
   const files = manifiesto.archivos.map(function (a) {
@@ -37,4 +37,21 @@ function instalarDesdeGitHub() {
     throw new Error('Google respondió ' + res.getResponseCode() + ': ' + t.slice(0, 300));
   }
   Logger.log('✅ Versión ' + manifiesto.version + ' descargada. Recarga esta página del editor, elige la función «instalar» y pulsa Ejecutar.');
+}
+
+/**
+ * Último commit de una rama, leído del protocolo git de GitHub (no tiene el límite de 60 consultas
+ * por hora de la API, que los servidores de Google agotan al compartir IP). Si falla, se usa el
+ * nombre de la rama: las huellas de version.json siguen garantizando que los archivos coinciden.
+ */
+function ultimoCommit_(repo, rama) {
+  try {
+    const res = UrlFetchApp.fetch('https://github.com/' + repo + '.git/info/refs?service=git-upload-pack',
+      { muteHttpExceptions: true, headers: { 'User-Agent': 'git/2.40 certificados-pastoral' } });
+    if (res.getResponseCode() === 200) {
+      const m = res.getContentText().match(new RegExp('([0-9a-f]{40}) refs/heads/' + rama.replace(/[^\w.-]/g, '') + '\\n'));
+      if (m) return m[1];
+    }
+  } catch (err) { }
+  return rama;
 }
