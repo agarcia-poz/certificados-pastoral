@@ -26,21 +26,19 @@ Diseño por defecto: franjas arriba y abajo (color cambiable, admite imagen de f
 | `src/Editor.html` | Editor que se abre dentro de la hoja: diseño por actividad, textos, fondos, ayuda para IA y generación por lotes. |
 | `src/motor.js` | Motor de maquetación: una sola maquetación con dos salidas idénticas, la vista previa (canvas) y el PDF (pdf-lib). |
 | `assets/` | Logos de Pastoral, SAFA y UJA (se incrustan en la app). |
-| `build.py` | Genera `dist/`, lo que descarga la app: `Codigo.gs`, `LogoCorreo.gs`, `Editor.html`, `Motor.html`, `Logos.html`, `appsscript.json` y `version.json` (versión, novedades y huellas). |
-| `instalador/` | Los dos textos que se pegan una sola vez para instalar la app. |
+| `build.py` | Genera `dist/CertificadosPastoral.gs` (la app entera en un archivo: código, páginas del editor y logos) y `dist/version.json` (versión y novedades). |
 | `tests/` | Simulación de Google + motor real: recorre el flujo completo y las reglas de privacidad. |
 
 ## Instalar y actualizar (sin instalar programas)
 
-1. Crea una hoja de cálculo nueva > Extensiones > Apps Script.
-2. ⚙️ Configuración del proyecto > marca «Mostrar el archivo de manifiesto "appsscript.json"».
-3. Pega `instalador/appsscript.json` en `appsscript.json` e `instalador/Instalador.gs` en `Código.gs`. Guarda.
-4. Activa la «API de Google Apps Script» en https://script.google.com/home/usersettings.
-5. Ejecuta `instalarDesdeGitHub`, recarga el editor y ejecuta `instalar`.
+La app entera es un solo archivo: [`dist/CertificadosPastoral.gs`](dist/CertificadosPastoral.gs).
 
-Actualizar: en la hoja, **⛪ Certificados > 🔄 Actualizar la app** y después **Instalar / reparar**.
-La app descarga `dist/` de la rama `main` en un commit fijo y comprueba la huella SHA-256 de cada archivo
-(`dist/version.json`) antes de sustituir el código. Los datos no se tocan.
+1. Crea una hoja de cálculo nueva > Extensiones > Apps Script.
+2. Abre el [archivo en bruto](https://raw.githubusercontent.com/agarcia-poz/certificados-pastoral/main/dist/CertificadosPastoral.gs), copia todo y pégalo en `Código.gs`, sustituyendo lo que haya. Guarda.
+3. Ejecuta la función `instalar` y acepta los permisos. Recarga la hoja.
+
+Actualizar: **⛪ Certificados > 🔄 Actualizar la app** compara tu versión con `dist/version.json` y, si hay una nueva,
+muestra sus novedades y el enlace para volver a copiar y pegar el archivo. Después, **Instalar / reparar**. Los datos no se tocan.
 
 ## Publicar una versión nueva
 

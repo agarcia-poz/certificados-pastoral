@@ -7,13 +7,14 @@
  *  diseño con vista previa → PDF → firma 1 → firma 2 (Autofirma) → envío
  *  automático al alumno/a → verificación pública por código.
  *
- *  Código fuente: repositorio público de GitHub indicado en CONFIG.REPO_GITHUB.
- *  No lo edites a mano en Apps Script: «⛪ Certificados > Actualizar la app»
- *  sustituye todos los archivos por la última versión publicada.
+ *  INSTALAR: hoja nueva > Extensiones > Apps Script > pega este archivo entero
+ *  en Código.gs > guarda > ejecuta «instalar». Recarga la hoja.
+ *  ACTUALIZAR: ⛪ Certificados > 🔄 Actualizar la app (te da el enlace al archivo nuevo).
+ *  Código fuente: https://github.com/agarcia-poz/certificados-pastoral
  * ============================================================================
  */
 
-const VERSION_APP = '2.1.1';
+const VERSION_APP = '2.2.0';
 
 // ─────────────────────────────── CONFIGURACIÓN TÉCNICA ──────────────────────
 // Los firmantes, cargos y correos de aviso se cambian en la hoja «Ajustes», no aquí.
@@ -150,12 +151,16 @@ function onEdit(e) {
 // ─────────────────────────────── EDITOR ─────────────────────────────────────
 function abrirEditor() {
   if (!esPropietario_()) return;
-  const html = HtmlService.createTemplateFromFile('Editor').evaluate()
+  const html = (typeof ARCHIVOS_HTML !== 'undefined' ? HtmlService.createTemplate(ARCHIVOS_HTML.Editor) : HtmlService.createTemplateFromFile('Editor')).evaluate()
     .setWidth(1320).setHeight(880).setTitle('Diseñar y generar certificados');
   SpreadsheetApp.getUi().showModalDialog(html, '🎨 Diseñar y generar certificados');
 }
 
-function incluir_(nombre) { return HtmlService.createHtmlOutputFromFile(nombre).getContent(); }
+/** Las páginas van dentro de este mismo archivo (ARCHIVOS_HTML, al final); si no, se leen como archivos HTML. */
+function incluir_(nombre) {
+  if (typeof ARCHIVOS_HTML !== 'undefined' && ARCHIVOS_HTML[nombre]) return ARCHIVOS_HTML[nombre];
+  return HtmlService.createHtmlOutputFromFile(nombre).getContent();
+}
 
 /** Datos iniciales del editor. */
 function api_inicio() {
@@ -1137,86 +1142,38 @@ function mostrarEnlaces() {
 }
 
 // ─────────────────────────────── ACTUALIZACIÓN DESDE GITHUB ─────────────────
-/**
- * Descarga la última versión publicada en GitHub y sustituye los archivos de este proyecto.
- * Necesita la «API de Google Apps Script» activada en https://script.google.com/home/usersettings.
- * Los datos (hojas, bóveda, carpetas, diseños) no se tocan: solo cambia el código.
- */
+/** Dirección del archivo único de la app en GitHub (lo que se copia y pega para instalar o actualizar). */
+function urlArchivoApp_() {
+  return 'https://raw.githubusercontent.com/' + CONFIG.REPO_GITHUB + '/' + CONFIG.RAMA_GITHUB + '/dist/CertificadosPastoral.gs';
+}
+
+/** Comprueba si hay versión nueva en GitHub y explica cómo ponerla (copiar y pegar un archivo). */
 function actualizarApp() {
   if (!esPropietario_()) return;
-  const ui = SpreadsheetApp.getUi();
-  let paquete;
-  try { paquete = descargarPaquete_(CONFIG.REPO_GITHUB, CONFIG.RAMA_GITHUB); }
-  catch (err) { avisar_('No se pudo consultar GitHub.\n\n' + err.message); return; }
-  if (paquete.version === VERSION_APP) { avisar_('Ya tienes la última versión (' + VERSION_APP + ').'); return; }
-  const r = ui.alert('Actualizar la app',
-    'Tienes la versión ' + VERSION_APP + '. Hay disponible la ' + paquete.version + ' (' + paquete.fecha + ').\n\n' +
-    (paquete.novedades ? 'Novedades:\n' + paquete.novedades + '\n\n' : '') +
-    'Solo cambia el código: tus hojas, la bóveda, las carpetas y los diseños se quedan como están.\n\n¿Actualizar ahora?',
-    ui.ButtonSet.YES_NO);
-  if (r !== ui.Button.YES) return;
-  try { escribirProyecto_(ScriptApp.getScriptId(), paquete.archivos); }
-  catch (err) { avisar_('No se pudo actualizar.\n\n' + err.message); return; }
-  registrar_('Actualización', VERSION_APP + ' → ' + paquete.version + ' (' + paquete.commit.slice(0, 7) + ')');
-  avisar_('✅ Actualizada a la versión ' + paquete.version + '.\n\nRecarga la hoja y pulsa ⛪ Certificados > Instalar / reparar para terminar.');
-}
-
-/** Lee version.json y los archivos de dist/ en un commit concreto, y comprueba su huella SHA-256. */
-function descargarPaquete_(repo, rama) {
-  const get = function (url) {
-    const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { 'User-Agent': 'certificados-pastoral' } });
-    if (res.getResponseCode() !== 200) throw new Error('GitHub respondió ' + res.getResponseCode() + ' en ' + url);
-    return res.getContentText('UTF-8');
-  };
-  // Se fija el commit para que todos los archivos sean de la misma versión
-  const commit = ultimoCommit_(repo, rama);
-  const base = 'https://raw.githubusercontent.com/' + repo + '/' + commit + '/dist/';
-  const manifiesto = JSON.parse(get(base + 'version.json'));
-  const archivos = manifiesto.archivos.map(function (a) {
-    if (!/^[A-Za-z0-9_]+$/.test(a.nombre) || ['SERVER_JS', 'HTML', 'JSON'].indexOf(a.tipo) < 0) throw new Error('Paquete no válido.');
-    const fuente = get(base + a.archivo);
-    if (huella_(fuente) !== a.sha256) throw new Error('El archivo ' + a.archivo + ' no coincide con su huella. Inténtalo en unos minutos.');
-    return { name: a.nombre, type: a.tipo, source: fuente };
-  });
-  if (!archivos.some(function (a) { return a.name === 'appsscript'; })) throw new Error('Paquete sin manifiesto.');
-  return { version: manifiesto.version, fecha: manifiesto.fecha, novedades: manifiesto.novedades || '', commit: commit, archivos: archivos };
-}
-
-/**
- * Último commit de una rama, leído del protocolo git de GitHub (no tiene el límite de 60 consultas
- * por hora de la API, que los servidores de Google agotan al compartir IP). Si falla, se usa el
- * nombre de la rama: las huellas de version.json siguen garantizando que los archivos coinciden.
- */
-function ultimoCommit_(repo, rama) {
+  let info;
   try {
-    const res = UrlFetchApp.fetch('https://github.com/' + repo + '.git/info/refs?service=git-upload-pack',
-      { muteHttpExceptions: true, headers: { 'User-Agent': 'git/2.40 certificados-pastoral' } });
-    if (res.getResponseCode() === 200) {
-      const m = res.getContentText().match(new RegExp('([0-9a-f]{40}) refs/heads/' + rama.replace(/[^\w.-]/g, '') + '\\n'));
-      if (m) return m[1];
-    }
-  } catch (err) { }
-  return rama;
+    const res = UrlFetchApp.fetch('https://raw.githubusercontent.com/' + CONFIG.REPO_GITHUB + '/' + CONFIG.RAMA_GITHUB +
+      '/dist/version.json?t=' + Date.now(), { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) throw new Error('GitHub respondió ' + res.getResponseCode());
+    info = JSON.parse(res.getContentText('UTF-8'));
+  } catch (err) { avisar_('No se pudo consultar GitHub.\n\n' + err.message); return; }
+  if (compararVersiones_(info.version, VERSION_APP) <= 0) { avisar_('Ya tienes la última versión (' + VERSION_APP + ').'); return; }
+  const editor = 'https://script.google.com/home/projects/' + ScriptApp.getScriptId() + '/edit';
+  const html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#1f2a33">' +
+    '<p>Tienes la versión <b>' + esc_(VERSION_APP) + '</b>. Hay disponible la <b>' + esc_(info.version) + '</b> (' + esc_(info.fecha) + ').</p>' +
+    (info.novedades ? '<p style="background:#eaf2f9;padding:10px 12px;border-radius:8px;white-space:pre-line">' + esc_(info.novedades) + '</p>' : '') +
+    '<ol style="padding-left:20px">' +
+    '<li><a href="' + urlArchivoApp_() + '" target="_blank">Abre el archivo nuevo</a>, pulsa <b>Ctrl/Cmd + A</b> y <b>Ctrl/Cmd + C</b>.</li>' +
+    '<li><a href="' + editor + '" target="_blank">Abre Apps Script</a>, entra en <b>CertificadosPastoral.gs</b> (o Código.gs), selecciona todo y pega. Guarda (💾).</li>' +
+    '<li>Vuelve aquí, recarga la hoja y pulsa ⛪ Certificados &gt; <b>Instalar / reparar</b>.</li></ol>' +
+    '<p style="color:#5d6b75;font-size:12.5px">Solo cambia el código: tus hojas, la bóveda, las carpetas y los diseños se quedan como están.</p></div>';
+  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(420), '🔄 Versión nueva disponible');
 }
 
-function escribirProyecto_(scriptId, archivos) {
-  const res = UrlFetchApp.fetch('https://script.googleapis.com/v1/projects/' + scriptId + '/content', {
-    method: 'put', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-    payload: JSON.stringify({ files: archivos })
-  });
-  const code = res.getResponseCode();
-  if (code === 200) return;
-  const texto = res.getContentText();
-  if (code === 403 && /has not been used|disabled|not enabled/i.test(texto)) {
-    throw new Error('Falta activar la «API de Google Apps Script» en https://script.google.com/home/usersettings (y esperar un par de minutos).');
-  }
-  throw new Error('Google respondió ' + code + ': ' + texto.slice(0, 300));
-}
-
-function huella_(texto) {
-  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, texto, Utilities.Charset.UTF_8)
-    .map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('');
+function compararVersiones_(a, b) {
+  const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); }
+  return 0;
 }
 
 // ─────────────────────────────── PLANTILLA DE EMAIL ─────────────────────────

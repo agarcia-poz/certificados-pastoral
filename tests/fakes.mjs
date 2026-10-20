@@ -107,7 +107,7 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
     SpreadsheetApp: {
       getActive: () => gestion, getActiveSpreadsheet: () => gestion,
       openById: (id) => estado.libros[id], create: (n) => { const l = libroFalso(n); l.insertSheet('Hoja 1'); return l; },
-      getUi: () => ({ alert: (m) => { estado.alertas.push(m); return 'YES'; }, ButtonSet: {}, Button: { YES: 'YES' } }),
+      getUi: () => ({ alert: (m) => { estado.alertas.push(m); return 'YES'; }, showModalDialog: (h) => { (estado.dialogos = estado.dialogos || []).push(h.html); }, ButtonSet: {}, Button: { YES: 'YES' } }),
       newDataValidation: () => encadenable({ build: () => ({}) }),
       newConditionalFormatRule: () => encadenable({ build: () => ({}) }),
       flush: () => {}, ProtectionType: { RANGE: 'RANGE' }, getActiveSheet: () => null

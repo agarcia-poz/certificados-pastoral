@@ -1,5 +1,10 @@
 # Novedades
 
+## 2.2.0 (2026-10-20)
+- La app entera va en un solo archivo: se instala y se actualiza copiando y pegando, sin manifiesto ni API.
+- «Actualizar la app» avisa de la versión nueva, sus novedades y el enlace al archivo.
+- Logos más ligeros.
+
 ## 2.1.1 (2026-10-20)
 - Instalación y actualización sin depender de la API de GitHub (evita el error 403 por límite de consultas).
 

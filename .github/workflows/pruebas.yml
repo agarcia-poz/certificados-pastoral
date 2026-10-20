@@ -14,8 +14,7 @@ jobs:
         run: |
           python3 build.py
           git diff --exit-code dist || (echo "dist/ no está al día: ejecuta python3 build.py y súbelo" && exit 1)
-          cp dist/Codigo.gs /tmp/codigo.js && node --check /tmp/codigo.js
-          cp instalador/Instalador.gs /tmp/inst.js && node --check /tmp/inst.js
+          cp dist/CertificadosPastoral.gs /tmp/app.js && node --check /tmp/app.js
           node --check src/motor.js
       - name: Pruebas del flujo completo
-        run: cd tests && npm install --silent && node run.mjs && node instalador.mjs
+        run: cd tests && npm install --silent && node run.mjs

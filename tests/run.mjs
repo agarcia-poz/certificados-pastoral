@@ -14,7 +14,7 @@ const RAIZ = new URL('..', import.meta.url).pathname;
 
 const { ctx, estado, gestion, archivoFalso } = crearGoogle();
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(RAIZ + 'dist/Codigo.gs', 'utf8') + '\n' + fs.readFileSync(RAIZ + 'dist/LogoCorreo.gs', 'utf8') + '\n;this.G = { actualizarApp, instalar, actualizarFormulario, alEnviarFormulario, onEdit, tareaPeriodica, doGet, dniValido_, iniciales_, cursoAcademico_, api_inicio, api_diseno, api_guardarDiseno, api_subirImagen, api_imagen, api_cola, api_reservar, api_guardarPdf, api_finTanda, P, A, EST };', ctx);
+vm.runInContext(fs.readFileSync(RAIZ + 'dist/CertificadosPastoral.gs', 'utf8') + '\n;this.G = { actualizarApp, incluir_, instalar, actualizarFormulario, alEnviarFormulario, onEdit, tareaPeriodica, doGet, dniValido_, iniciales_, cursoAcademico_, api_inicio, api_diseno, api_guardarDiseno, api_subirImagen, api_imagen, api_cola, api_reservar, api_guardarPdf, api_finTanda, P, A, EST };', ctx);
 const G = ctx.G;
 
 let fallos = 0, ok = 0;
@@ -151,28 +151,19 @@ comprobar(!/@alumnos\.test|@mal\.test/.test(textoGestion), 'ningún correo del a
 comprobar(Object.values(estado.archivos).every(f => !/\d{8}[A-Z]/.test(f.nombre)), 'ningún DNI en nombres de archivo');
 comprobar(estado.correos.every(c => !/\d{8}[A-Z]|Lucía|Pablo/.test(c.asunto)), 'asuntos sin datos personales');
 
-// ── 9. Actualización desde GitHub
-const commit = 'a'.repeat(40), base = 'https://raw.githubusercontent.com/agarcia-poz/certificados-pastoral/' + commit + '/dist/';
-const publicar = (cambiar) => {
-  const man = JSON.parse(fs.readFileSync(RAIZ + 'dist/version.json', 'utf8'));
-  man.version = '9.9.9';
-  estado.web['https://github.com/agarcia-poz/certificados-pastoral.git/info/refs?service=git-upload-pack'] = { code: 200, text: '001e# service=git-upload-pack\n0000015a' + commit + ' HEAD\u0000multi_ack\n003f' + commit + ' refs/heads/main\n0000' };
-  estado.web[base + 'version.json'] = { code: 200, text: JSON.stringify(man) };
-  man.archivos.forEach(a => { estado.web[base + a.archivo] = { code: 200, text: fs.readFileSync(RAIZ + 'dist/' + a.archivo, 'utf8') + (cambiar === a.archivo ? '// manipulado' : '') }; });
-};
-publicar('Editor.html');
-estado.peticiones.length = 0;
+// ── 9. Archivo único y aviso de actualización
+comprobar(/const LOGOS = /.test(G.incluir_('Logos')) && /Motor = M|module\.exports/.test(G.incluir_('Motor')), 'páginas incrustadas en el archivo único');
+const urlVersion = (u) => u.startsWith('https://raw.githubusercontent.com/agarcia-poz/certificados-pastoral/main/dist/version.json');
+const servir = (version) => { ctx.UrlFetchApp.fetch = (url) => ({ getResponseCode: () => urlVersion(url) ? 200 : 404, getContentText: () => JSON.stringify({ version, fecha: '2026-11-01', novedades: '- Algo nuevo' }) }); };
+servir('2.2.0'); estado.dialogos = [];
 G.actualizarApp();
-comprobar(!estado.peticiones.some(p => p.op.method === 'put') && /no coincide con su huella/.test(estado.alertas.at(-1)), 'actualización: rechaza un archivo manipulado');
-publicar(null);
+comprobar(/Ya tienes la última versión/.test(estado.alertas.at(-1)), 'actualizar: misma versión');
+servir('2.10.0');
 G.actualizarApp();
-const put = estado.peticiones.find(p => p.op.method === 'put');
-const enviadosPut = put ? JSON.parse(put.op.payload).files : [];
-comprobar(put && put.url.includes('/projects/SCRIPT123/content') && enviadosPut.length === 7 - 1 && enviadosPut.some(f => f.name === 'appsscript' && f.type === 'JSON'), 'actualización: sustituye los 6 archivos del proyecto');
-comprobar(/Actualizada a la versión 9.9.9/.test(estado.alertas.at(-1)), 'actualización: confirma la versión');
-estado.web['https://script.googleapis.com/v1/projects/SCRIPT123/content'] = { code: 403, text: 'Apps Script API has not been used in project' };
+comprobar(estado.dialogos.length === 1 && /CertificadosPastoral\.gs/.test(estado.dialogos[0]) && /Algo nuevo/.test(estado.dialogos[0]), 'actualizar: versión nueva con novedades y enlace (2.10 > 2.2)');
+servir('1.9.9');
 G.actualizarApp();
-comprobar(/usersettings/.test(estado.alertas.at(-1)), 'actualización: explica cómo activar la API');
+comprobar(/Ya tienes la última versión/.test(estado.alertas.at(-1)), 'actualizar: no ofrece versiones anteriores');
 
 console.log(`\n${ok} comprobaciones correctas, ${fallos} fallos`);
 process.exit(fallos ? 1 : 0);

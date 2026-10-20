@@ -2,7 +2,7 @@
   "name": "certificados-pastoral-pruebas",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node run.mjs && node instalador.mjs" },
+  "scripts": { "test": "node run.mjs" },
   "devDependencies": {
     "@expo-google-fonts/open-sans": "0.4.2",
     "@pdf-lib/fontkit": "1.1.1",
