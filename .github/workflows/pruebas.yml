@@ -1,0 +1,21 @@
+name: Pruebas
+on:
+  push:
+  pull_request:
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Comprobar que dist/ está al día y la sintaxis
+        run: |
+          python3 build.py
+          git diff --exit-code dist || (echo "dist/ no está al día: ejecuta python3 build.py y súbelo" && exit 1)
+          cp dist/Codigo.gs /tmp/codigo.js && node --check /tmp/codigo.js
+          cp instalador/Instalador.gs /tmp/inst.js && node --check /tmp/inst.js
+          node --check src/motor.js
+      - name: Pruebas del flujo completo
+        run: cd tests && npm install --silent && node run.mjs && node instalador.mjs

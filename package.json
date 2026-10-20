@@ -1,0 +1,10 @@
+{
+  "name": "certificados-pastoral",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Certificados de Pastoral · C.U. Sagrada Familia (Google Apps Script)",
+  "scripts": {
+    "build": "python3 build.py",
+    "pruebas": "python3 build.py && cd tests && npm install --silent && npm test"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "version": "2.1.0",
+  "fecha": "2026-10-20",
+  "novedades": "- La app se actualiza sola desde GitHub: menú ⛪ Certificados > 🔄 Actualizar la app.\n- Instalación sin programas: se pegan dos textos en Apps Script.\n- Diseño por defecto: franjas verdes arriba y abajo (color cambiable, admite fondo).\n- El logo de los correos va dentro de la app.",
+  "archivos": [
+    {
+      "archivo": "Codigo.gs",
+      "nombre": "Codigo",
+      "tipo": "SERVER_JS",
+      "sha256": "e68eb953ec59140dade4e87751ecb0c3bafd1035f0cb7edc9e186b0591435db1"
+    },
+    {
+      "archivo": "Editor.html",
+      "nombre": "Editor",
+      "tipo": "HTML",
+      "sha256": "289ca2eafce2300f3e6c89fb64a21e4173d70e765e561d2d34bffc98596aba5d"
+    },
+    {
+      "archivo": "LogoCorreo.gs",
+      "nombre": "LogoCorreo",
+      "tipo": "SERVER_JS",
+      "sha256": "4959738298258d80d58dcbe4d13e77c2f547a5332d426232dbbaef97cc63c514"
+    },
+    {
+      "archivo": "Logos.html",
+      "nombre": "Logos",
+      "tipo": "HTML",
+      "sha256": "5d77bc6bd57359faf82162416b37bee2c5fd5966fd2d267849ff616ac7dc3d81"
+    },
+    {
+      "archivo": "Motor.html",
+      "nombre": "Motor",
+      "tipo": "HTML",
+      "sha256": "51069c4ad79b6d5aa275feb961827ba602059bcbd9dd4c0ef6c16d713c676154"
+    },
+    {
+      "archivo": "appsscript.json",
+      "nombre": "appsscript",
+      "tipo": "JSON",
+      "sha256": "d76c1a96b68f0d75f71d085d3094280747629ae4bd4c4841d96a4b5543c34dd9"
+    }
+  ]
+}

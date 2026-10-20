@@ -1,0 +1,467 @@
+/**
+ * MOTOR DE CERTIFICADOS · Pastoral C.U. SAFA
+ * ------------------------------------------------------------------
+ * Una sola maquetación, dos salidas idénticas:
+ *   · vista previa en pantalla (canvas)  · PDF final (pdf-lib)
+ * Funciona en el navegador (editor de la hoja) y en Node (pruebas).
+ * Unidades: puntos tipográficos (A4 = 595,28 × 841,89), origen arriba a la izquierda.
+ */
+(function (raiz) {
+  'use strict';
+
+  const ANCHO = 595.28, ALTO = 841.89;
+
+  const TIPOGRAFIAS = {
+    opensans:   { nombre: 'Open Sans (como el modelo)', pkg: 'open-sans',  base: 'OpenSans' },
+    lora:       { nombre: 'Lora (serif elegante)',       pkg: 'lora',       base: 'Lora' },
+    montserrat: { nombre: 'Montserrat (moderna)',        pkg: 'montserrat', base: 'Montserrat' }
+  };
+  const VERSION_FUENTES = '0.4.2';
+  const ESTILOS = { regular: '400Regular', bold: '700Bold', italic: '400Regular_Italic', semibold: '600SemiBold' };
+
+  function urlFuente(tipo, estilo) {
+    const t = TIPOGRAFIAS[tipo] || TIPOGRAFIAS.opensans;
+    return 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/' + t.pkg + '@' + VERSION_FUENTES + '/' +
+      ESTILOS[estilo] + '/' + t.base + '_' + ESTILOS[estilo] + '.ttf';
+  }
+
+  const PLANTILLAS = {
+    cabecera: 'Franjas (arriba y abajo)',
+    banda: 'Banda lateral (modelo anterior)',
+    marco: 'Marco con doble filete',
+    limpio: 'Limpio (para fondos propios)'
+  };
+
+  const DISENO_BASE = {
+    plantilla: 'cabecera',
+    color: '#2e7d4f',
+    acento: '#f2c14e',
+    colorTexto: '#1f2a33',
+    tipografia: 'opensans',
+    textoBanda: 'Centro Universitario Sagrada Familia (Úbeda)',
+    fondoId: '',
+    velo: 0,                 // 0-90: capa blanca semitransparente bajo el texto
+    logoSuperior: true,
+    logosPie: true,
+    qr: true,
+    etiqueta: 'Servicio de Pastoral y Compromiso Solidario',
+    titulo: 'Certificado de participación',
+    intro: 'Por la presente se certifica que:',
+    lineaDni: 'DNI: {dni}',
+    cuerpo: '{verbo} la actividad **{actividad}**, celebrada {lugar} **{fechas}**.',
+    descripcion: '',
+    textoHoras: 'La actividad ha tenido una duración de **{horas} horas**.',
+    textoEcts: 'La participación en esta actividad supone el reconocimiento de **{ects} {creditos} ECTS**, ' +
+      'en el marco de la formación integral del alumnado del Centro Universitario Sagrada Familia.',
+    cierre: '',
+    verbos: {
+      'Participante': 'ha participado en',
+      'Organización': 'ha colaborado en la organización de',
+      'Coordinación': 'ha coordinado'
+    },
+    firmas: []               // [{titulo, nombre}] ; vacío = los firmantes de la hoja «Ajustes»
+  };
+
+  // ─────────────────────────── utilidades ───────────────────────────
+  function mezclar(diseno) {
+    const d = JSON.parse(JSON.stringify(DISENO_BASE));
+    Object.keys(diseno || {}).forEach(function (k) {
+      if (diseno[k] === undefined || diseno[k] === null) return;
+      if (k === 'verbos') Object.assign(d.verbos, diseno.verbos);
+      else d[k] = diseno[k];
+    });
+    return d;
+  }
+
+  function hexARgb(hex) {
+    const h = String(hex || '#000').replace('#', '');
+    const n = parseInt(h.length === 3 ? h.split('').map(function (c) { return c + c; }).join('') : h, 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  function aclarar(hex, f) {
+    const c = hexARgb(hex).map(function (v) { return v + (1 - v) * f; });
+    return '#' + c.map(function (v) { return Math.round(v * 255).toString(16).padStart(2, '0'); }).join('');
+  }
+  function num(n) { return String(Math.round(Number(n) * 100) / 100).replace('.', ','); }
+
+  /** Sustituye {campos}. Los campos desconocidos se dejan tal cual para que se vean en la vista previa. */
+  function rellenar(plantilla, datos, d) {
+    const ects = Number(datos.ects) || 0;
+    const valores = {
+      nombre: ((datos.nombre || '') + ' ' + (datos.apellidos || '')).trim(),
+      dni: datos.dni || '', actividad: datos.actividad || '', fechas: datos.fechas || '',
+      lugar: datos.lugar || 'en el Centro Universitario de la Sagrada Familia de Úbeda',
+      horas: num(datos.horas || 0), ects: num(ects), creditos: ects === 1 ? 'crédito' : 'créditos',
+      verbo: (d.verbos && d.verbos[datos.rol]) || d.verbos['Participante'],
+      rol: datos.rol || '', curso: datos.curso || '', codigo: datos.codigo || '', fecha: datos.fecha || ''
+    };
+    return String(plantilla || '').replace(/\{(\w+)\}/g, function (m, k) { return k in valores ? valores[k] : m; });
+  }
+
+  /** «texto **negrita** *cursiva*» → palabras formadas por trozos con estilo. */
+  function palabras(texto) {
+    const trozos = [];
+    const re = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+    let ult = 0, m;
+    while ((m = re.exec(texto))) {
+      if (m.index > ult) trozos.push({ t: texto.slice(ult, m.index), f: 'regular' });
+      if (m[0].indexOf('**') === 0) trozos.push({ t: m[0].slice(2, -2), f: 'bold' });
+      else trozos.push({ t: m[0].slice(1, -1), f: 'italic' });
+      ult = re.lastIndex;
+    }
+    if (ult < texto.length) trozos.push({ t: texto.slice(ult), f: 'regular' });
+    const res = [];
+    let actual = [];
+    trozos.forEach(function (tr) {
+      tr.t.split(/(\s+)/).forEach(function (s) {
+        if (!s) return;
+        if (/^\s+$/.test(s)) { if (actual.length) { res.push(actual); actual = []; } return; }
+        actual.push({ t: s, f: tr.f });
+      });
+    });
+    if (actual.length) res.push(actual);
+    return res;
+  }
+
+  // ─────────────────────────── maquetación ──────────────────────────
+  /**
+   * @param diseno  objeto de diseño (se completa con DISENO_BASE)
+   * @param datos   {nombre, apellidos, dni, actividad, fechas, lugar, horas, ects, rol, codigo, url, fecha, firmantes:[{titulo,nombre}]}
+   * @param medir   function(fuente, texto, tamaño) → ancho en puntos
+   * @param imgs    {pastoral:{w,h}, safa:{w,h}, uja:{w,h}, fondo:{w,h}}  (las que existan)
+   * @param qr      function(texto) → matriz booleana (opcional)
+   */
+  function componer(diseno, datos, medir, imgs, qr) {
+    const d = mezclar(diseno);
+    imgs = imgs || {};
+    const ops = [], avisos = [];
+    const C = d.color, T = d.colorTexto, A = d.acento;
+    const gris = '#5d6b75';
+
+    // 1. Fondo y decoración
+    if (d.fondoId && imgs.fondo) ops.push({ t: 'img', k: 'fondo', x: 0, y: 0, w: ANCHO, h: ALTO });
+    let x0 = 72, x1 = ANCHO - 72, yTop = 54, yBottom = ALTO - 40;
+
+    if (d.plantilla === 'banda') {
+      const bw = 86;
+      ops.push({ t: 'rect', x: 0, y: 0, w: bw, h: ALTO, c: C });
+      ops.push({ t: 'rect', x: bw, y: 0, w: 3.2, h: ALTO, c: A });
+      if (d.textoBanda) {
+        let tam = 29;
+        const largo = medir('regular', d.textoBanda, tam);
+        if (largo > ALTO * 0.88) tam = tam * ALTO * 0.88 / largo;
+        const w = medir('regular', d.textoBanda, tam);
+        // Texto girado 90º: se lee de abajo arriba
+        ops.push({ t: 'text', s: d.textoBanda, f: 'regular', z: tam, c: '#ffffff', x: bw / 2 + tam * 0.36, y: (ALTO + w) / 2, rot: 90 });
+      }
+      x0 = bw + 46; x1 = ANCHO - 50;
+    } else if (d.plantilla === 'marco') {
+      ops.push({ t: 'box', x: 20, y: 20, w: ANCHO - 40, h: ALTO - 40, c: C, g: 2.6 });
+      ops.push({ t: 'box', x: 28, y: 28, w: ANCHO - 56, h: ALTO - 56, c: A, g: 0.8 });
+      [[20, 20], [ANCHO - 34, 20], [20, ALTO - 34], [ANCHO - 34, ALTO - 34]].forEach(function (p) {
+        ops.push({ t: 'rect', x: p[0], y: p[1], w: 14, h: 14, c: C });
+      });
+      x0 = 74; x1 = ANCHO - 74; yTop = 60; yBottom = ALTO - 46;
+    } else if (d.plantilla === 'cabecera') {
+      ops.push({ t: 'rect', x: 0, y: 0, w: ANCHO, h: 16, c: C });
+      ops.push({ t: 'rect', x: 0, y: 16, w: ANCHO, h: 3, c: A });
+      ops.push({ t: 'rect', x: 0, y: ALTO - 10, w: ANCHO, h: 10, c: C });
+      x0 = 70; x1 = ANCHO - 70; yTop = 50; yBottom = ALTO - 34;
+    }
+    const ancho = x1 - x0, cx = (x0 + x1) / 2;
+
+    if (d.velo > 0) {
+      const m = 18;
+      ops.push({ t: 'rect', x: x0 - m, y: yTop - m, w: ancho + 2 * m, h: yBottom - yTop + 2 * m, c: '#ffffff', o: Math.min(0.9, d.velo / 100) });
+    }
+
+    // 2. Pie (se coloca desde abajo): logos, código y QR
+    let yPie = yBottom;
+    const codigoTxt = datos.codigo || 'SAFA-PAS-0000-XXXXXX';
+    const tamQr = 48;
+    const conQr = d.qr && qr && datos.url;
+    if (conQr) {
+      const matriz = qr(datos.url + '?c=' + codigoTxt);
+      if (matriz) {
+        const n = matriz.length, celda = tamQr / n, xq = x1 - tamQr, yq = yPie - tamQr - 12;
+        for (let r = 0; r < n; r++) {
+          let ini = -1;
+          for (let c = 0; c <= n; c++) {
+            const on = c < n && matriz[r][c];
+            if (on && ini < 0) ini = c;
+            if (!on && ini >= 0) { ops.push({ t: 'rect', x: xq + ini * celda, y: yq + r * celda, w: (c - ini) * celda + 0.05, h: celda + 0.05, c: '#1d1d1d' }); ini = -1; }
+          }
+        }
+      }
+    }
+    // Línea del código
+    const lineaCodigo = 'Código de verificación: ' + codigoTxt;
+    ops.push({ t: 'text', s: lineaCodigo, f: 'regular', z: 7.2, c: gris,
+      x: conQr ? x1 - tamQr / 2 - medir('regular', lineaCodigo, 7.2) / 2 : cx - medir('regular', lineaCodigo, 7.2) / 2, y: yPie - 2 });
+    if (conQr && medir('regular', lineaCodigo, 7.2) / 2 > tamQr / 2) {
+      // si no cabe centrada bajo el QR, se alinea a la derecha
+      ops[ops.length - 1].x = x1 - medir('regular', lineaCodigo, 7.2);
+    }
+    yPie -= 14;
+    const altoPie = conQr ? tamQr : 46;
+    if (d.logosPie) {
+      const logos = [];
+      if (imgs.safa) logos.push({ k: 'safa', h: 46 });
+      if (imgs.uja) logos.push({ k: 'uja', h: 30 });
+      const areaW = conQr ? ancho - tamQr - 16 : ancho;
+      const hueco = areaW / Math.max(1, logos.length);
+      logos.forEach(function (l, i) {
+        const im = imgs[l.k];
+        let w = im.w * l.h / im.h, h = l.h;
+        if (w > hueco - 20) { w = hueco - 20; h = im.h * w / im.w; }
+        ops.push({ t: 'img', k: l.k, x: x0 + hueco * i + (hueco - w) / 2, y: yPie - altoPie / 2 - h / 2, w: w, h: h });
+      });
+    }
+    yPie -= altoPie + 16;
+
+    // 3. Firmas (encima del pie)
+    const firmantes = (d.firmas && d.firmas.length ? d.firmas : datos.firmantes) || [];
+    const nF = Math.max(1, firmantes.length);
+    const colW = ancho / nF;
+    const tamF = 10.5, interF = tamF * 1.35;
+    let maxLineasTitulo = 1;
+    const titulosPartidos = firmantes.map(function (f) {
+      const l = partir(palabras(f.titulo || ''), colW - 24, tamF, medir, 'bold');
+      maxLineasTitulo = Math.max(maxLineasTitulo, l.length);
+      return l;
+    });
+    const altoFirma = 78;              // hueco para la firma visible de Autofirma
+    const yNombres = yPie;
+    const yTitulos = yNombres - altoFirma - maxLineasTitulo * interF;
+    firmantes.forEach(function (f, i) {
+      const cxF = x0 + colW * i + colW / 2;
+      titulosPartidos[i].forEach(function (linea, j) {
+        dibujarLinea(ops, linea, cxF, yTitulos + j * interF + tamF, tamF, medir, T, 'center', colW - 24, false, 'bold');
+      });
+      const nom = f.nombre || '';
+      ops.push({ t: 'line', x: cxF - 70, y: yNombres - tamF - 5, x2: cxF + 70, y2: yNombres - tamF - 5, c: aclarar(C, 0.55), g: 0.6 });
+      ops.push({ t: 'text', s: nom, f: 'regular', z: tamF, c: T, x: cxF - medir('regular', nom, tamF) / 2, y: yNombres });
+    });
+    const limiteTexto = yTitulos - 22;
+
+    // 4. Cabecera y texto (de arriba abajo). Si no cabe, se reduce el tamaño del texto.
+    function cabecera(y, escala) {
+      const o = [];
+      if (d.logoSuperior && imgs.pastoral) {
+        const h = 84 * escala, w = imgs.pastoral.w * h / imgs.pastoral.h;
+        o.push({ t: 'img', k: 'pastoral', x: cx - w / 2, y: y, w: w, h: h });
+        y += h + 10 * escala;
+      }
+      if (d.etiqueta) {
+        const et = d.etiqueta.toUpperCase(), z = 8, esp = 1.8;
+        let w = 0; for (const ch of et) w += medir('semibold', ch, z) + esp; w -= esp;
+        let x = cx - w / 2;
+        for (const ch of et) { o.push({ t: 'text', s: ch, f: 'semibold', z: z, c: C, x: x, y: y + z }); x += medir('semibold', ch, z) + esp; }
+        y += z + 14 * escala;
+      }
+      if (d.titulo) {
+        let z = 27;
+        const w = medir('bold', d.titulo, z);
+        if (w > ancho) z = z * ancho / w;
+        o.push({ t: 'text', s: d.titulo, f: 'bold', z: z, c: T, x: cx - medir('bold', d.titulo, z) / 2, y: y + z * 0.9 });
+        y += z * 1.15 + 8 * escala;
+        o.push({ t: 'rect', x: cx - 28, y: y, w: 56, h: 2.2, c: A });
+        y += 20 * escala;
+      }
+      return { ops: o, y: y };
+    }
+
+    function cuerpo(y, z, escala) {
+      const o = [];
+      const inter = 1.52;
+      if (d.intro) {
+        const l = partir(palabras(rellenar(d.intro, datos, d)), ancho, z + 0.5, medir, 'bold');
+        l.forEach(function (linea) { dibujarLinea(o, linea, x0, y + z + 0.5, z + 0.5, medir, T, 'left', ancho, false, 'bold'); y += (z + 0.5) * inter; });
+        y += 10 * escala;
+      }
+      const nombre = rellenar('{nombre}', datos, d);
+      let zn = 22;
+      if (medir('bold', nombre, zn) > ancho) zn = zn * ancho / medir('bold', nombre, zn);
+      o.push({ t: 'text', s: nombre, f: 'bold', z: zn, c: C, x: cx - medir('bold', nombre, zn) / 2, y: y + zn * 0.9 });
+      y += zn * 1.2;
+      if (d.lineaDni) {
+        const ld = rellenar(d.lineaDni, datos, d);
+        o.push({ t: 'text', s: ld, f: 'regular', z: z, c: gris, x: cx - medir('regular', ld, z) / 2, y: y + z });
+        y += z * 1.5;
+      }
+      y += 16 * escala;
+      const parrafos = [rellenar(d.cuerpo, datos, d)];
+      String(d.descripcion || '').split(/\n+/).forEach(function (p) { if (p.trim()) parrafos.push(rellenar(p.trim(), datos, d)); });
+      const extra = [];
+      if (Number(datos.horas) > 0 && d.textoHoras) extra.push(rellenar(d.textoHoras, datos, d));
+      if (Number(datos.ects) > 0 && d.textoEcts) extra.push(rellenar(d.textoEcts, datos, d));
+      if (extra.length) parrafos.push(extra.join(' '));
+      if (d.cierre) parrafos.push(rellenar(d.cierre, datos, d));
+      parrafos.forEach(function (p, i) {
+        const lineas = partir(palabras(p), ancho, z, medir, 'regular');
+        lineas.forEach(function (linea, j) {
+          dibujarLinea(o, linea, x0, y + z, z, medir, T, j === lineas.length - 1 ? 'left' : 'justify', ancho, true);
+          y += z * inter;
+        });
+        if (i < parrafos.length - 1) y += z * 0.75;
+      });
+      return { ops: o, y: y };
+    }
+
+    let z = 11.5, escala = 1, cab, cue;
+    for (let intento = 0; intento < 30; intento++) {
+      cab = cabecera(yTop, escala);
+      cue = cuerpo(cab.y, z, escala);
+      if (cue.y <= limiteTexto) break;
+      z -= 0.25; escala = Math.max(0.55, escala - 0.04);
+      if (z < 8.5) { avisos.push('El texto es demasiado largo: se ha reducido al mínimo y aun así no cabe. Acórtalo.'); break; }
+    }
+    if (z < 11.5 && avisos.length === 0) avisos.push('Para que todo quepa en una página, el texto se ha reducido a ' + num(z) + ' pt.');
+    // Se reparte el espacio sobrante entre cabecera y cuerpo para que la página respire
+    const sobra = Math.max(0, limiteTexto - cue.y);
+    const desplaza = Math.min(sobra * 0.35, 40);
+    cue.ops.forEach(function (op) { op.y += desplaza; if (op.y2 !== undefined) op.y2 += desplaza; });
+    return { ops: ops.concat(cab.ops, cue.ops), avisos: avisos, tamTexto: z };
+  }
+
+  /** Reparte palabras en líneas que caben en «ancho». */
+  function partir(lista, ancho, z, medir, fBase) {
+    const esp = medir('regular', ' ', z);
+    const lineas = [];
+    let linea = [], w = 0;
+    lista.forEach(function (pal) {
+      const wp = pal.reduce(function (s, tr) { return s + medir(fuenteDe(tr.f, fBase), tr.t, z); }, 0);
+      if (linea.length && w + esp + wp > ancho) { lineas.push(linea); linea = []; w = 0; }
+      w += (linea.length ? esp : 0) + wp;
+      linea.push({ trozos: pal, w: wp });
+    });
+    if (linea.length) lineas.push(linea);
+    return lineas;
+  }
+  function fuenteDe(f, base) { return f === 'regular' ? (base || 'regular') : f; }
+
+  function dibujarLinea(ops, linea, x, yBase, z, medir, color, alin, ancho, conEstilos, fBase) {
+    const esp = medir('regular', ' ', z);
+    const total = linea.reduce(function (s, p) { return s + p.w; }, 0) + esp * (linea.length - 1);
+    let hueco = esp, xi = x;
+    if (alin === 'center') xi = x - total / 2;
+    if (alin === 'justify' && linea.length > 1) hueco = (ancho - total + esp * (linea.length - 1)) / (linea.length - 1);
+    if (alin !== 'justify' || linea.length < 2) {
+      // Sin justificar: se agrupan las palabras con la misma fuente (el PDF se copia y busca mejor)
+      let seg = null;
+      linea.forEach(function (p, iw) {
+        p.trozos.forEach(function (tr, it) {
+          const f = fuenteDe(tr.f, fBase);
+          const sep = iw > 0 && it === 0 ? ' ' : '';
+          if (seg && seg.f === f) seg.s += sep + tr.t;
+          else {
+            if (seg) { if (sep) seg.s += ' '; ops.push(seg); }
+            seg = { t: 'text', s: tr.t, f: f, z: z, c: color, x: xi + (sep ? esp : 0), y: yBase };
+          }
+          xi += (sep ? esp : 0) + medir(f, tr.t, z);
+        });
+      });
+      if (seg) ops.push(seg);
+      return;
+    }
+    linea.forEach(function (p, iw) {
+      p.trozos.forEach(function (tr, it) {
+        const f = fuenteDe(tr.f, fBase);
+        // espacio final invisible: al copiar el texto del PDF las palabras no salen pegadas
+        const fin = it === p.trozos.length - 1 && iw < linea.length - 1 ? ' ' : '';
+        ops.push({ t: 'text', s: tr.t + fin, f: f, z: z, c: color, x: xi, y: yBase });
+        xi += medir(f, tr.t, z);
+      });
+      xi += hueco;
+    });
+  }
+
+  // ─────────────────────────── salidas ──────────────────────────────
+  /** Carga las fuentes en un documento pdf-lib. Si falla, usa Helvetica (siempre disponible). */
+  async function cargarFuentes(PDFLib, fontkit, doc, bytes) {
+    const f = {};
+    if (bytes && fontkit) {
+      doc.registerFontkit(fontkit);
+      for (const k of Object.keys(ESTILOS)) {
+        if (bytes[k]) { try { f[k] = await doc.embedFont(bytes[k], { subset: true }); } catch (e) { } }
+      }
+    }
+    const std = { regular: 'Helvetica', bold: 'HelveticaBold', italic: 'HelveticaOblique', semibold: 'HelveticaBold' };
+    for (const k of Object.keys(std)) if (!f[k]) f[k] = await doc.embedFont(PDFLib.StandardFonts[std[k]]);
+    return f;
+  }
+
+  /** Devuelve una función medir() basada en las fuentes reales. */
+  async function crearMedidor(PDFLib, fontkit, bytes) {
+    const doc = await PDFLib.PDFDocument.create();
+    const f = await cargarFuentes(PDFLib, fontkit, doc, bytes);
+    const cache = {};
+    return function (fuente, texto, z) {
+      const clave = fuente + '|' + texto;
+      if (!(clave in cache)) cache[clave] = f[fuente].widthOfTextAtSize(texto, 1000);
+      return cache[clave] * z / 1000;
+    };
+  }
+
+  /** ops → PDF (Uint8Array). imagenes: {clave: {bytes, tipo:'png'|'jpg'}} */
+  async function aPdf(PDFLib, fontkit, ops, bytesFuentes, imagenes, meta) {
+    const doc = await PDFLib.PDFDocument.create();
+    const f = await cargarFuentes(PDFLib, fontkit, doc, bytesFuentes);
+    const pagina = doc.addPage([ANCHO, ALTO]);
+    const emb = {};
+    for (const k of Object.keys(imagenes || {})) {
+      const im = imagenes[k];
+      if (!im || !im.bytes) continue;
+      try { emb[k] = im.tipo === 'png' ? await doc.embedPng(im.bytes) : await doc.embedJpg(im.bytes); } catch (e) { }
+    }
+    const col = function (hex) { const c = hexARgb(hex); return PDFLib.rgb(c[0], c[1], c[2]); };
+    ops.forEach(function (op) {
+      if (op.t === 'rect') pagina.drawRectangle({ x: op.x, y: ALTO - op.y - op.h, width: op.w, height: op.h, color: col(op.c), opacity: op.o === undefined ? 1 : op.o });
+      else if (op.t === 'box') pagina.drawRectangle({ x: op.x, y: ALTO - op.y - op.h, width: op.w, height: op.h, borderColor: col(op.c), borderWidth: op.g });
+      else if (op.t === 'line') pagina.drawLine({ start: { x: op.x, y: ALTO - op.y }, end: { x: op.x2, y: ALTO - op.y2 }, thickness: op.g, color: col(op.c) });
+      else if (op.t === 'img' && emb[op.k]) pagina.drawImage(emb[op.k], { x: op.x, y: ALTO - op.y - op.h, width: op.w, height: op.h });
+      else if (op.t === 'text') {
+        const o = { x: op.x, y: ALTO - op.y, size: op.z, font: f[op.f] || f.regular, color: col(op.c) };
+        if (op.rot) o.rotate = PDFLib.degrees(op.rot);
+        pagina.drawText(op.s, o);
+      }
+    });
+    if (meta) {
+      if (meta.titulo) doc.setTitle(meta.titulo);
+      doc.setAuthor('Servicio de Pastoral y Compromiso Solidario · C.U. Sagrada Familia');
+      doc.setCreator('Certificados Pastoral C.U. SAFA');
+      if (meta.asunto) doc.setSubject(meta.asunto);
+    }
+    return await doc.save();
+  }
+
+  /** ops → canvas. fuentes: {regular:'NombreCSS', …}; imagenes: {clave: HTMLImageElement} */
+  function aCanvas(ctx, ops, escala, fuentes, imagenes) {
+    ctx.save();
+    ctx.scale(escala, escala);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, ANCHO, ALTO);
+    ops.forEach(function (op) {
+      ctx.globalAlpha = op.o === undefined ? 1 : op.o;
+      if (op.t === 'rect') { ctx.fillStyle = op.c; ctx.fillRect(op.x, op.y, op.w, op.h); }
+      else if (op.t === 'box') { ctx.strokeStyle = op.c; ctx.lineWidth = op.g; ctx.strokeRect(op.x + op.g / 2, op.y + op.g / 2, op.w - op.g, op.h - op.g); }
+      else if (op.t === 'line') { ctx.strokeStyle = op.c; ctx.lineWidth = op.g; ctx.beginPath(); ctx.moveTo(op.x, op.y); ctx.lineTo(op.x2, op.y2); ctx.stroke(); }
+      else if (op.t === 'img' && imagenes[op.k]) ctx.drawImage(imagenes[op.k], op.x, op.y, op.w, op.h);
+      else if (op.t === 'text') {
+        ctx.fillStyle = op.c;
+        ctx.font = op.z + 'px "' + (fuentes[op.f] || fuentes.regular) + '", Helvetica, Arial, sans-serif';
+        if (op.rot) { ctx.save(); ctx.translate(op.x, op.y); ctx.rotate(-op.rot * Math.PI / 180); ctx.fillText(op.s, 0, 0); ctx.restore(); }
+        else ctx.fillText(op.s, op.x, op.y);
+      }
+    });
+    ctx.restore();
+  }
+
+  const Motor = {
+    ANCHO: ANCHO, ALTO: ALTO, TIPOGRAFIAS: TIPOGRAFIAS, PLANTILLAS: PLANTILLAS, ESTILOS: ESTILOS,
+    DISENO_BASE: DISENO_BASE, mezclar: mezclar, rellenar: rellenar, componer: componer,
+    urlFuente: urlFuente, crearMedidor: crearMedidor, aPdf: aPdf, aCanvas: aCanvas, aclarar: aclarar
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = Motor;
+  else raiz.Motor = Motor;
+})(typeof window !== 'undefined' ? window : this);

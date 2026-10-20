@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<base target="_top">
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<?!= incluir_('Motor') ?>
+<?!= incluir_('Logos') ?>
+<style>
+  :root {
+    --azul: #2a6096; --azul-osc: #1d4a77; --azul-claro: #eaf2f9; --texto: #1f2a33; --suave: #5d6b75;
+    --borde: #d9e2e9; --fondo: #f3f6f9; --ok: #0b7a45; --mal: #b3261e; --aviso: #8a5a00;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Open Sans", Arial, Helvetica, sans-serif; color: var(--texto); background: var(--fondo); font-size: 13px; }
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--borde); }
+  header select { min-width: 360px; }
+  .pestanas { display: flex; gap: 4px; margin-left: auto; }
+  .pestanas button { border: 1px solid var(--borde); background: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--suave); }
+  .pestanas button.activa { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .contador { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #f2a33a; color: #fff; font-size: 11px; margin-left: 6px; }
+  main { display: grid; grid-template-columns: 440px 1fr; min-height: 0; }
+  .panel { overflow-y: auto; background: #fff; border-right: 1px solid var(--borde); display: flex; flex-direction: column; }
+  .panel-scroll { flex: 1; overflow-y: auto; padding: 6px 16px 16px; }
+  .panel-pie { border-top: 1px solid var(--borde); padding: 10px 16px; background: #fafcfd; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  details { border-bottom: 1px solid var(--borde); padding: 10px 0; }
+  summary { font-weight: 700; cursor: pointer; color: var(--azul-osc); font-size: 13.5px; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '▸ '; color: var(--suave); }
+  details[open] summary::before { content: '▾ '; }
+  label { display: block; font-weight: 600; margin: 10px 0 4px; font-size: 12px; color: var(--suave); }
+  input[type=text], textarea, select { width: 100%; padding: 7px 9px; border: 1px solid var(--borde); border-radius: 6px; font: inherit; color: var(--texto); background: #fff; }
+  textarea { resize: vertical; min-height: 58px; line-height: 1.45; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid #9cc0e4; border-color: var(--azul); }
+  .fila { display: flex; gap: 8px; align-items: center; }
+  .fila > * { flex: 1; }
+  .ayuda { font-size: 11.5px; color: var(--suave); margin-top: 4px; line-height: 1.4; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .chip { border: 1px solid var(--borde); background: var(--azul-claro); color: var(--azul-osc); border-radius: 12px; padding: 2px 8px; font-size: 11px; cursor: pointer; font-family: monospace; }
+  .plantillas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .plantilla { border: 2px solid var(--borde); border-radius: 8px; padding: 6px 4px 5px; cursor: pointer; text-align: center; font-size: 10.5px; background: #fff; color: var(--suave); }
+  .plantilla.activa { border-color: var(--azul); color: var(--azul-osc); font-weight: 700; }
+  .plantilla canvas { display: block; margin: 0 auto 4px; border: 1px solid #e5ebf0; }
+  .colores { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .muestra { width: 30px; height: 22px; border-radius: 5px; cursor: pointer; border: 1px solid rgba(0,0,0,.15); position: relative; overflow: hidden; }
+  .muestra span { position: absolute; right: 0; bottom: 0; width: 40%; height: 40%; }
+  input[type=color] { width: 44px; height: 30px; padding: 0; border: 1px solid var(--borde); border-radius: 6px; background: #fff; }
+  .boton { border: 1px solid var(--borde); background: #fff; padding: 7px 12px; border-radius: 7px; font: inherit; font-weight: 600; cursor: pointer; color: var(--texto); }
+  .boton:hover { background: var(--fondo); }
+  .boton.primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .boton.primario:hover { background: var(--azul-osc); }
+  .boton.verde { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .boton:disabled { opacity: .5; cursor: default; }
+  .boton.peq { padding: 4px 8px; font-size: 11.5px; }
+  .interruptor { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-weight: 600; color: var(--texto); font-size: 12.5px; }
+  .interruptor input { width: 16px; height: 16px; }
+  .vista { display: flex; flex-direction: column; min-height: 0; }
+  .vista-barra { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+  .vista-barra select { width: auto; min-width: 200px; }
+  .lienzo { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 18px; }
+  .lienzo canvas { box-shadow: 0 6px 24px rgba(20,40,60,.18); background: #fff; }
+  .avisos { font-size: 12px; color: var(--aviso); flex-basis: 100%; min-height: 16px; }
+  .estado-guardado { font-size: 12px; color: var(--suave); margin-left: auto; }
+  .estado-guardado.sin { color: var(--aviso); font-weight: 700; }
+  .ia { background: #f7f3ff; border: 1px solid #e0d6f5; border-radius: 8px; padding: 10px; margin-top: 8px; }
+  .ia h4 { margin: 0 0 4px; font-size: 12.5px; color: #5b2c83; }
+  .ia textarea { min-height: 46px; }
+  .persona { display: grid; grid-template-columns: 22px 1fr 1fr 34px; gap: 5px 6px; align-items: center; padding: 8px 6px; border: 1px solid var(--borde); border-radius: 8px; margin-bottom: 6px; }
+  .persona input[type=text], .persona select { padding: 5px 7px; font-size: 12px; }
+  .persona .sel { grid-row: span 2; width: 16px; height: 16px; }
+  .persona .ver { grid-row: span 2; height: 100%; }
+  .persona.mal input.dni { border-color: var(--mal); background: #fff4f3; }
+  .persona.hecho { opacity: .5; }
+  .persona .aviso-email { grid-column: 2 / span 2; font-size: 11px; color: var(--mal); }
+  .barra-progreso { height: 10px; background: #e5ebf0; border-radius: 6px; overflow: hidden; margin: 10px 0 6px; }
+  .barra-progreso div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
+  .registro { font-size: 12px; max-height: 160px; overflow: auto; background: var(--fondo); border-radius: 6px; padding: 8px; white-space: pre-wrap; }
+  .vacio { padding: 30px 10px; text-align: center; color: var(--suave); }
+  .cargando { position: fixed; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 10; font-weight: 600; color: var(--azul-osc); }
+  .oculto { display: none !important; }
+  .nota { background: var(--azul-claro); border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.45; margin: 10px 0; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f2a33; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 12.5px; z-index: 20; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <strong style="color:var(--azul-osc)">Actividad</strong>
+    <select id="actividad"></select>
+    <span class="estado-guardado" id="estadoGuardado"></span>
+    <div class="pestanas">
+      <button id="tabDiseno" class="activa">🎨 Diseño</button>
+      <button id="tabGenerar">🖨️ Generar <span class="contador" id="contador">0</span></button>
+    </div>
+  </header>
+  <main>
+    <!-- ───────────── PANEL DISEÑO ───────────── -->
+    <section class="panel" id="panelDiseno">
+      <div class="panel-scroll">
+        <details open>
+          <summary>Estilo</summary>
+          <label>Plantilla</label>
+          <div class="plantillas" id="plantillas"></div>
+          <label>Colores</label>
+          <div class="fila" style="flex:0">
+            <div style="flex:0"><input type="color" id="color" title="Color principal"></div>
+            <div style="flex:0"><input type="color" id="acento" title="Color de acento"></div>
+            <div class="ayuda" style="flex:1">Principal (banda, nombre) y acento (filetes).<br>O elige una combinación:</div>
+          </div>
+          <div class="colores" id="presets"></div>
+          <label>Tipografía</label>
+          <select id="tipografia"></select>
+          <div id="bloqueBanda">
+            <label>Texto de la banda lateral</label>
+            <input type="text" id="textoBanda">
+          </div>
+        </details>
+
+        <details>
+          <summary>Fondo, logos y QR</summary>
+          <label>Fondo de página (imagen creada con otra IA, por ejemplo)</label>
+          <div class="fila">
+            <button class="boton" id="btnFondo">📁 Subir fondo…</button>
+            <button class="boton" id="btnQuitarFondo">Quitar fondo</button>
+          </div>
+          <input type="file" id="archivoFondo" accept="image/png,image/jpeg,image/webp" class="oculto">
+          <div class="ayuda">Se recorta y adapta solo a A4 vertical. Consejo: con un fondo propio, la plantilla «Limpio» suele quedar mejor.</div>
+          <label>Velo blanco bajo el texto: <span id="veloValor">0</span> %</label>
+          <input type="range" id="velo" min="0" max="90" step="5" style="width:100%">
+          <div class="ia">
+            <h4>✨ Crear el fondo con IA</h4>
+            <input type="text" id="ideaFondo" placeholder="Idea: acuarela suave de olivos y luz de amanecer…">
+            <div class="fila" style="margin-top:6px"><button class="boton peq" id="btnPromptFondo">Copiar instrucción para la IA</button></div>
+            <textarea id="promptFondo" class="oculto" readonly></textarea>
+          </div>
+          <label class="interruptor"><input type="checkbox" id="logoSuperior"> Logo superior</label>
+          <div class="fila">
+            <button class="boton peq" id="btnLogo">Cambiar logo superior…</button>
+            <button class="boton peq" id="btnLogoOriginal">Volver al logo de Pastoral</button>
+          </div>
+          <input type="file" id="archivoLogo" accept="image/png,image/jpeg" class="oculto">
+          <label class="interruptor"><input type="checkbox" id="logosPie"> Logos SAFA y UJA al pie</label>
+          <label class="interruptor"><input type="checkbox" id="qr"> Código QR de verificación</label>
+        </details>
+
+        <details open>
+          <summary>Textos del certificado</summary>
+          <div class="nota">Escribe <b>**así**</b> para negrita y <i>*así*</i> para cursiva. Los campos entre llaves se rellenan solos: pulsa uno para insertarlo donde está el cursor.
+            <div class="chips" id="chips"></div></div>
+          <label>Rótulo superior (opcional)</label><input type="text" id="etiqueta">
+          <label>Título</label><input type="text" id="titulo">
+          <label>Frase de entrada</label><input type="text" id="intro">
+          <label>Línea del DNI</label><input type="text" id="lineaDni">
+          <label>Párrafo principal</label><textarea id="cuerpo"></textarea>
+          <label>Texto sobre la actividad (cada línea, un párrafo)</label>
+          <textarea id="descripcion" style="min-height:120px" placeholder="Pega aquí el texto generado con IA…"></textarea>
+          <div class="ia">
+            <h4>✨ Texto con IA</h4>
+            <textarea id="notasIA" placeholder="Qué se hizo, con quién, objetivos… (cuanto más concreto, mejor texto)"></textarea>
+            <div class="fila" style="margin-top:6px"><button class="boton peq" id="btnPromptTexto">Copiar instrucción para la IA</button></div>
+            <textarea id="promptTexto" class="oculto" readonly></textarea>
+            <div class="ayuda">Pégala en Claude u otra IA, revisa el resultado y pégalo arriba.</div>
+          </div>
+          <label>Frase de horas (solo si la actividad tiene horas)</label><textarea id="textoHoras"></textarea>
+          <label>Frase de ECTS (solo si la actividad tiene ECTS)</label><textarea id="textoEcts"></textarea>
+          <label>Cierre (opcional, por ejemplo con la fecha)</label>
+          <textarea id="cierre" placeholder="Y para que así conste, se expide el presente certificado en Úbeda, a {fecha}."></textarea>
+        </details>
+
+        <details>
+          <summary>Frase según el rol</summary>
+          <div class="ayuda">Es lo que sustituye a <code>{verbo}</code>.</div>
+          <div id="verbos"></div>
+        </details>
+
+        <details>
+          <summary>Firmas</summary>
+          <div class="ayuda">Por defecto salen los firmantes de la hoja «Ajustes». Aquí puedes cambiar cómo aparecen en esta actividad (el orden y quién firma no cambian).</div>
+          <div id="firmas"></div>
+          <button class="boton peq" id="btnFirmasAjustes" style="margin-top:8px">Volver a los de «Ajustes»</button>
+        </details>
+      </div>
+      <div class="panel-pie">
+        <button class="boton primario" id="btnGuardar">💾 Guardar diseño</button>
+        <label class="interruptor" style="margin:0"><input type="checkbox" id="comoBase"> usar también como base</label>
+        <button class="boton peq" id="btnBase" title="Descarta los cambios no guardados">Deshacer cambios</button>
+      </div>
+    </section>
+
+    <!-- ───────────── PANEL GENERAR ───────────── -->
+    <section class="panel oculto" id="panelGenerar">
+      <div class="panel-scroll">
+        <div class="nota">Aquí están las personas con <b>✔ Certificar</b> marcado en esta actividad. Puedes corregir nombre, apellidos, DNI y rol antes de generar: las correcciones se guardan en la bóveda.</div>
+        <div id="sinPendientes" class="vacio oculto">No hay certificados pendientes en esta actividad.<br>Marca «✔ Certificar» en la hoja «Participaciones».</div>
+        <div id="tablaCola">
+          <label class="interruptor"><input type="checkbox" id="todos" checked> Seleccionar todas</label>
+          <div id="listaCola"></div>
+        </div>
+        <div id="progreso" class="oculto">
+          <div class="barra-progreso"><div id="barra"></div></div>
+          <div id="textoProgreso" class="ayuda"></div>
+          <div class="registro" id="registro"></div>
+        </div>
+      </div>
+      <div class="panel-pie">
+        <button class="boton verde" id="btnGenerar">🖨️ Generar certificados</button>
+        <span class="ayuda">Mantén esta ventana abierta mientras se generan.</span>
+      </div>
+    </section>
+
+    <!-- ───────────── VISTA PREVIA ───────────── -->
+    <section class="vista">
+      <div class="vista-barra">
+        <strong>Vista previa con</strong>
+        <select id="verCon"></select>
+        <select id="verRol"></select>
+        <button class="boton peq" id="btnPrueba">📄 Guardar PDF de prueba</button>
+        <span class="avisos" id="avisos"></span>
+      </div>
+      <div class="lienzo" id="lienzo"><canvas id="canvas"></canvas></div>
+    </section>
+  </main>
+</div>
+<div class="cargando" id="cargando"><div>Cargando el editor…</div><div class="ayuda" id="cargandoDetalle"></div></div>
+<textarea id="portapapeles" style="position:fixed;left:-9999px;top:0"></textarea>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const PRESETS = [
+    ['Verde Pastoral', '#2e7d4f', '#f2c14e'], ['Azul SAFA', '#2a6096', '#f2a33a'], ['Adviento', '#5b2c83', '#c9a227'], ['Navidad', '#a61e2a', '#d4af37'],
+    ['Cuaresma', '#6b3f86', '#a7a9ac'], ['Pascua', '#b8860b', '#2a6096'], ['Ordinario', '#3f8f3a', '#e8d8a8'],
+    ['Solidaridad', '#c0392b', '#2a6096'], ['Voluntariado', '#d35400', '#2a6096'], ['Mar', '#0f6c81', '#9bd0d8'],
+    ['Sobrio', '#33414c', '#b08d57']
+  ];
+  const CAMPOS_TEXTO = ['etiqueta', 'titulo', 'intro', 'lineaDni', 'cuerpo', 'descripcion', 'textoHoras', 'textoEcts', 'cierre', 'textoBanda', 'notasIA'];
+  const CHIPS = ['{nombre}', '{dni}', '{actividad}', '{fechas}', '{lugar}', '{verbo}', '{horas}', '{ects}', '{creditos}', '{rol}', '{curso}', '{fecha}', '{codigo}'];
+
+  const S = {
+    ini: null, act: null, diseno: null, guardado: '', cola: [], fuentes: {}, imgs: {}, ultimoCampo: null,
+    pestana: 'diseno', generando: false
+  };
+
+  // ─────────── servidor ───────────
+  function llamar(fn) {
+    const args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (ok, ko) {
+      google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) { ko(e && e.message ? e : new Error(String(e))); })[fn].apply(null, args);
+    });
+  }
+  function aviso(t) {
+    const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d);
+    setTimeout(() => d.remove(), 3200);
+  }
+  function cargando(si, detalle) { $('cargando').classList.toggle('oculto', !si); $('cargandoDetalle').textContent = detalle || ''; }
+
+  // ─────────── recursos (fuentes e imágenes) ───────────
+  async function fuente(tipo) {
+    if (S.fuentes[tipo]) return S.fuentes[tipo];
+    const bytes = {}, css = {};
+    await Promise.all(Object.keys(Motor.ESTILOS).map(async (estilo) => {
+      try {
+        const r = await fetch(Motor.urlFuente(tipo, estilo));
+        if (!r.ok) throw new Error(r.status);
+        bytes[estilo] = new Uint8Array(await r.arrayBuffer());
+        const nombre = 'CP_' + tipo + '_' + estilo;
+        const ff = new FontFace(nombre, bytes[estilo]);
+        await ff.load(); document.fonts.add(ff); css[estilo] = nombre;
+      } catch (e) { css[estilo] = 'Helvetica'; }
+    }));
+    const medir = await Motor.crearMedidor(PDFLib, window.fontkit, bytes);
+    S.fuentes[tipo] = { bytes, css, medir };
+    return S.fuentes[tipo];
+  }
+
+  function dataUriABytes(uri) {
+    const b64 = uri.split(',')[1], bin = atob(b64), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+  function bytesABase64(u8) {
+    let s = ''; const paso = 0x8000;
+    for (let i = 0; i < u8.length; i += paso) s += String.fromCharCode.apply(null, u8.subarray(i, i + paso));
+    return btoa(s);
+  }
+  function imagenDesdeUri(uri) {
+    return new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = uri; });
+  }
+  async function registrarImagen(clave, uri) {
+    const el = await imagenDesdeUri(uri);
+    S.imgs[clave] = { el, w: el.naturalWidth, h: el.naturalHeight, bytes: dataUriABytes(uri), tipo: uri.indexOf('image/png') > -1 ? 'png' : 'jpg' };
+  }
+  async function imagenDrive(clave, id) {
+    if (!id) { delete S.imgs[clave]; return; }
+    if (S.imgs[clave] && S.imgs[clave].id === id) return;
+    const r = await llamar('api_imagen', id);
+    await registrarImagen(clave, 'data:' + r.mime + ';base64,' + r.base64);
+    S.imgs[clave].id = id;
+  }
+  async function prepararImagenes() {
+    await imagenDrive('fondo', S.diseno.fondoId);
+    await imagenDrive('logoPropio', S.diseno.logoId);
+  }
+  function imagenesPara(d) {
+    const r = {};
+    if (S.imgs.safa) r.safa = S.imgs.safa;
+    if (S.imgs.uja) r.uja = S.imgs.uja;
+    const sup = d.logoId && S.imgs.logoPropio ? S.imgs.logoPropio : S.imgs.pastoral;
+    if (sup) r.pastoral = sup;
+    if (d.fondoId && S.imgs.fondo) r.fondo = S.imgs.fondo;
+    return r;
+  }
+
+  function matrizQr(texto) {
+    if (typeof qrcode === 'undefined') return null;
+    const q = qrcode(0, 'M'); q.addData(texto); q.make();
+    const n = q.getModuleCount(), m = [];
+    for (let r = 0; r < n; r++) { m.push([]); for (let c = 0; c < n; c++) m[r].push(q.isDark(r, c)); }
+    return m;
+  }
+
+  // ─────────── datos para dibujar ───────────
+  function hoyLargo() {
+    const M = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const d = new Date(); return d.getDate() + ' de ' + M[d.getMonth()] + ' de ' + d.getFullYear();
+  }
+  function datosDe(persona, rol, codigo) {
+    const a = S.act;
+    return {
+      nombre: persona.nombre, apellidos: persona.apellidos, dni: persona.dni,
+      actividad: a.nombre, fechas: a.fechas, lugar: a.lugar || S.ini.lugarPorDefecto, horas: a.horas, ects: a.ects,
+      rol: rol || persona.rol || 'Participante', curso: a.curso, fecha: hoyLargo(),
+      codigo: codigo || 'SAFA-PAS-' + String(a.curso || '').replace(/^20(\d\d)-(\d\d)$/, '$1$2') + '-XXXXXX',
+      url: S.ini.url || 'https://script.google.com/…/exec', firmantes: S.ini.firmantes
+    };
+  }
+  const EJEMPLO = { nombre: 'María José', apellidos: 'Valero Moro', dni: '12345678Z', rol: 'Participante' };
+
+  function personaVista() {
+    const v = $('verCon').value;
+    if (v === '_ej') return EJEMPLO;
+    const fila = S.cola.find((p) => p.reg === v);
+    return fila ? leerFilaEditada(fila) : EJEMPLO;
+  }
+
+  // ─────────── vista previa ───────────
+  let temporizador = null;
+  function programarVista() { clearTimeout(temporizador); temporizador = setTimeout(dibujarVista, 180); }
+
+  async function dibujarVista() {
+    if (!S.diseno || !S.act) return;
+    const d = Motor.mezclar(S.diseno);
+    const f = await fuente(d.tipografia);
+    const imgs = imagenesPara(d);
+    const per = personaVista();
+    const r = Motor.componer(d, datosDe(per, $('verRol').value), f.medir, imgs, matrizQr);
+    $('avisos').textContent = r.avisos.join(' ');
+    const lienzo = $('lienzo'), canvas = $('canvas');
+    const alto = Math.max(300, lienzo.clientHeight - 36);
+    const escalaVista = alto / Motor.ALTO, dpr = window.devicePixelRatio || 1;
+    canvas.style.height = alto + 'px'; canvas.style.width = (Motor.ANCHO * escalaVista) + 'px';
+    canvas.width = Math.round(Motor.ANCHO * escalaVista * dpr); canvas.height = Math.round(alto * dpr);
+    const els = {}; Object.keys(imgs).forEach((k) => { els[k] = imgs[k].el; });
+    Motor.aCanvas(canvas.getContext('2d'), r.ops, escalaVista * dpr, f.css, els);
+  }
+
+  async function pdfDe(persona, rol, codigo) {
+    const d = Motor.mezclar(S.diseno);
+    const f = await fuente(d.tipografia);
+    const imgs = imagenesPara(d);
+    const r = Motor.componer(d, datosDe(persona, rol, codigo), f.medir, imgs, matrizQr);
+    const bytesImg = {}; Object.keys(imgs).forEach((k) => { bytesImg[k] = { bytes: imgs[k].bytes, tipo: imgs[k].tipo }; });
+    return Motor.aPdf(PDFLib, window.fontkit, r.ops, f.bytes, bytesImg,
+      { titulo: d.titulo + ' · ' + S.act.nombre, asunto: codigo || 'Prueba de diseño' });
+  }
+
+  // ─────────── formulario de diseño ───────────
+  function miniPlantillas() {
+    const cont = $('plantillas'); cont.innerHTML = '';
+    Object.keys(Motor.PLANTILLAS).forEach((k) => {
+      const b = document.createElement('div'); b.className = 'plantilla'; b.dataset.k = k;
+      const c = document.createElement('canvas'); c.width = 54; c.height = 76;
+      b.appendChild(c); b.appendChild(document.createTextNode(Motor.PLANTILLAS[k].split(' (')[0]));
+      b.onclick = () => { S.diseno.plantilla = k; refrescarControles(); cambio(); };
+      cont.appendChild(b);
+    });
+  }
+  function pintarMinis() {
+    document.querySelectorAll('.plantilla').forEach((b) => {
+      b.classList.toggle('activa', b.dataset.k === S.diseno.plantilla);
+      const c = b.querySelector('canvas'), x = c.getContext('2d'), C = S.diseno.color || '#2a6096', A = S.diseno.acento || '#f2a33a';
+      x.fillStyle = '#fff'; x.fillRect(0, 0, 54, 76);
+      const k = b.dataset.k;
+      if (k === 'banda') { x.fillStyle = C; x.fillRect(0, 0, 8, 76); x.fillStyle = A; x.fillRect(8, 0, 1, 76); }
+      if (k === 'marco') { x.strokeStyle = C; x.lineWidth = 1.5; x.strokeRect(3, 3, 48, 70); x.strokeStyle = A; x.lineWidth = .6; x.strokeRect(6, 6, 42, 64); }
+      if (k === 'cabecera') { x.fillStyle = C; x.fillRect(0, 0, 54, 4); x.fillRect(0, 74, 54, 2); x.fillStyle = A; x.fillRect(0, 4, 54, 1); }
+      x.fillStyle = '#c5ced6'; [20, 30, 36, 42, 48].forEach((y, i) => x.fillRect(k === 'banda' ? 14 : 10, y, i === 0 ? 30 : 34, 2));
+      x.fillStyle = C; x.fillRect(18, 25, 20, 2.5);
+    });
+  }
+
+  function refrescarControles() {
+    const d = Motor.mezclar(S.diseno);
+    CAMPOS_TEXTO.forEach((k) => { if (document.activeElement !== $(k)) $(k).value = d[k] || ''; });
+    $('color').value = d.color; $('acento').value = d.acento; $('tipografia').value = d.tipografia;
+    $('velo').value = d.velo; $('veloValor').textContent = d.velo;
+    $('logoSuperior').checked = !!d.logoSuperior; $('logosPie').checked = !!d.logosPie; $('qr').checked = !!d.qr;
+    $('bloqueBanda').classList.toggle('oculto', d.plantilla !== 'banda');
+    $('btnQuitarFondo').disabled = !d.fondoId;
+    $('btnLogoOriginal').disabled = !d.logoId;
+    const vb = $('verbos'); vb.innerHTML = '';
+    S.ini.roles.forEach((rol) => {
+      vb.insertAdjacentHTML('beforeend', '<label>' + rol + '</label>');
+      const i = document.createElement('input'); i.type = 'text'; i.value = d.verbos[rol] || '';
+      i.oninput = () => { S.diseno.verbos = Object.assign({}, Motor.mezclar(S.diseno).verbos, { [rol]: i.value }); cambio(); };
+      vb.appendChild(i);
+    });
+    const fi = $('firmas'); fi.innerHTML = '';
+    const lista = d.firmas && d.firmas.length ? d.firmas : S.ini.firmantes;
+    S.ini.firmantes.forEach((_, n) => {
+      const f = lista[n] || S.ini.firmantes[n];
+      fi.insertAdjacentHTML('beforeend', '<label>Firma ' + (n + 1) + ' · cargo y nombre</label>');
+      const t = document.createElement('textarea'); t.value = f.titulo; t.style.minHeight = '38px';
+      const nom = document.createElement('input'); nom.type = 'text'; nom.value = f.nombre; nom.style.marginTop = '4px';
+      const leer = () => {
+        const actual = (S.diseno.firmas && S.diseno.firmas.length ? S.diseno.firmas : S.ini.firmantes).map((x) => ({ titulo: x.titulo, nombre: x.nombre }));
+        actual[n] = { titulo: t.value, nombre: nom.value };
+        S.diseno.firmas = actual; cambio();
+      };
+      t.oninput = leer; nom.oninput = leer;
+      fi.appendChild(t); fi.appendChild(nom);
+    });
+    pintarMinis();
+  }
+
+  function cambio() { marcarGuardado(); programarVista(); pintarMinis(); }
+  function marcarGuardado() {
+    const sin = JSON.stringify(S.diseno) !== S.guardado;
+    $('estadoGuardado').textContent = sin ? '● Cambios sin guardar' : (S.act && S.act.conDiseno ? '✓ Diseño guardado' : 'Usando el diseño base');
+    $('estadoGuardado').classList.toggle('sin', sin);
+  }
+
+  function enlazarControles() {
+    CAMPOS_TEXTO.forEach((k) => {
+      $(k).addEventListener('input', () => { S.diseno[k] = $(k).value; cambio(); });
+      $(k).addEventListener('focus', () => { S.ultimoCampo = $(k); });
+    });
+    $('color').oninput = () => { S.diseno.color = $('color').value; cambio(); };
+    $('acento').oninput = () => { S.diseno.acento = $('acento').value; cambio(); };
+    $('tipografia').onchange = () => { S.diseno.tipografia = $('tipografia').value; cambio(); };
+    $('velo').oninput = () => { S.diseno.velo = Number($('velo').value); $('veloValor').textContent = $('velo').value; cambio(); };
+    ['logoSuperior', 'logosPie', 'qr'].forEach((k) => { $(k).onchange = () => { S.diseno[k] = $(k).checked; cambio(); }; });
+    $('verCon').onchange = programarVista; $('verRol').onchange = programarVista;
+    window.addEventListener('resize', programarVista);
+
+    const chips = $('chips');
+    CHIPS.forEach((c) => {
+      const b = document.createElement('span'); b.className = 'chip'; b.textContent = c;
+      b.onmousedown = (e) => e.preventDefault();
+      b.onclick = () => {
+        const el = S.ultimoCampo || $('cuerpo');
+        const ini = el.selectionStart || el.value.length, fin = el.selectionEnd || ini;
+        el.value = el.value.slice(0, ini) + c + el.value.slice(fin);
+        el.focus(); el.selectionStart = el.selectionEnd = ini + c.length;
+        el.dispatchEvent(new Event('input'));
+      };
+      chips.appendChild(b);
+    });
+    PRESETS.forEach((p) => {
+      const m = document.createElement('div'); m.className = 'muestra'; m.title = p[0];
+      m.style.background = p[1]; m.innerHTML = '<span style="background:' + p[2] + '"></span>';
+      m.onclick = () => { S.diseno.color = p[1]; S.diseno.acento = p[2]; refrescarControles(); cambio(); };
+      $('presets').appendChild(m);
+    });
+    Object.keys(Motor.TIPOGRAFIAS).forEach((k) => {
+      $('tipografia').insertAdjacentHTML('beforeend', '<option value="' + k + '">' + Motor.TIPOGRAFIAS[k].nombre + '</option>');
+    });
+
+    $('btnFondo').onclick = () => $('archivoFondo').click();
+    $('archivoFondo').onchange = (e) => subirImagen(e.target.files[0], 'fondo');
+    $('btnQuitarFondo').onclick = () => { S.diseno.fondoId = ''; refrescarControles(); cambio(); };
+    $('btnLogo').onclick = () => $('archivoLogo').click();
+    $('archivoLogo').onchange = (e) => subirImagen(e.target.files[0], 'logo');
+    $('btnLogoOriginal').onclick = () => { S.diseno.logoId = ''; refrescarControles(); cambio(); };
+    $('btnFirmasAjustes').onclick = () => { S.diseno.firmas = []; refrescarControles(); cambio(); };
+    $('btnPromptTexto').onclick = () => copiar(promptTexto(), 'promptTexto');
+    $('btnPromptFondo').onclick = () => copiar(promptFondo(), 'promptFondo');
+    $('btnGuardar').onclick = guardar;
+    $('btnBase').onclick = restablecer;
+    $('btnPrueba').onclick = pdfPrueba;
+    $('actividad').onchange = cambiarActividad;
+    $('tabDiseno').onclick = () => pestana('diseno');
+    $('tabGenerar').onclick = () => pestana('generar');
+    $('btnGenerar').onclick = generar;
+    $('todos').onchange = () => document.querySelectorAll('#listaCola input.sel').forEach((c) => { c.checked = $('todos').checked; });
+  }
+
+  // ─────────── imágenes subidas ───────────
+  async function subirImagen(archivo, tipo) {
+    if (!archivo) return;
+    try {
+      cargando(true, 'Preparando la imagen…');
+      const uri = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(archivo); });
+      const im = await imagenDesdeUri(uri);
+      const c = document.createElement('canvas'), x = c.getContext('2d');
+      let salida, mime;
+      if (tipo === 'fondo') {
+        // Recorte «cubrir» a A4 vertical a 200 ppp
+        c.width = 1654; c.height = 2339;
+        const esc = Math.max(c.width / im.width, c.height / im.height);
+        const w = im.width * esc, h = im.height * esc;
+        x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+        x.drawImage(im, (c.width - w) / 2, (c.height - h) / 2, w, h);
+        mime = 'image/jpeg'; salida = c.toDataURL(mime, 0.86);
+      } else {
+        const esc = Math.min(1, 1100 / im.width);
+        c.width = Math.round(im.width * esc); c.height = Math.round(im.height * esc);
+        x.drawImage(im, 0, 0, c.width, c.height);
+        mime = 'image/png'; salida = c.toDataURL(mime);
+      }
+      cargando(true, 'Subiendo a Drive…');
+      const id = await llamar('api_subirImagen', salida.split(',')[1], mime, (tipo === 'fondo' ? 'Fondo ' : 'Logo ') + S.act.nombre);
+      await registrarImagen(tipo === 'fondo' ? 'fondo' : 'logoPropio', salida);
+      S.imgs[tipo === 'fondo' ? 'fondo' : 'logoPropio'].id = id;
+      if (tipo === 'fondo') { S.diseno.fondoId = id; if (!S.diseno.velo) S.diseno.velo = 0; }
+      else { S.diseno.logoId = id; S.diseno.logoSuperior = true; }
+      refrescarControles(); cambio();
+      aviso(tipo === 'fondo' ? 'Fondo añadido. Recuerda guardar el diseño.' : 'Logo cambiado. Recuerda guardar el diseño.');
+    } catch (e) { alert('No se pudo usar la imagen: ' + e.message); }
+    finally { cargando(false); $('archivoFondo').value = ''; $('archivoLogo').value = ''; }
+  }
+
+  // ─────────── IA ───────────
+  function promptTexto() {
+    const a = S.act, d = Motor.mezclar(S.diseno);
+    const frase = Motor.rellenar(d.cuerpo, datosDe({ nombre: '[nombre]', apellidos: '', dni: '' }, 'Participante'), d).replace(/\*\*/g, '');
+    return [
+      'Redacta el texto descriptivo de un certificado oficial del Servicio de Pastoral y Compromiso Solidario del Centro Universitario Sagrada Familia de Úbeda (centro de inspiración ignaciana adscrito a la Universidad de Jaén, que forma a futuros maestros y maestras de Educación Infantil y Primaria).',
+      '',
+      'Actividad: ' + a.nombre + (a.tipo ? ' (' + a.tipo.toLowerCase() + ')' : ''),
+      'Fechas: ' + (a.fechas || '—') + (a.horas ? ' · ' + a.horas + ' horas' : '') + (a.ects ? ' · ' + a.ects + ' ECTS' : ''),
+      'Lugar: ' + (a.lugar || S.ini.lugarPorDefecto),
+      'Qué se hizo y otros detalles: ' + ($('notasIA').value.trim() || '[escribe aquí qué se hizo, con qué entidades, objetivos…]'),
+      '',
+      'El texto irá justo después de esta frase del certificado: «' + frase + '»',
+      '',
+      'Requisitos:',
+      '- Dos párrafos, entre 80 y 130 palabras en total.',
+      '- Tercera persona e impersonal; no nombres a la persona certificada.',
+      '- Tono institucional, sobrio y cálido. Sin adjetivos grandilocuentes.',
+      '- Explica qué se trabajó y su objetivo formativo, y conéctalo con la futura labor docente; menciona la pedagogía ignaciana solo si encaja de forma natural.',
+      '- Sin lenguaje religioso explícito ni datos que yo no te haya dado.',
+      '- Si hay una entidad colaboradora, escríbela entre **dobles asteriscos** para que salga en negrita.',
+      '- Devuelve solo los dos párrafos, separados por un salto de línea, sin título ni comillas.',
+      '',
+      'Ejemplo del estilo buscado:',
+      'En dicho marco se han trabajado, desde la pedagogía ignaciana, la reflexión crítica sobre las desigualdades de género y la coeducación como clave para la construcción de una sociedad más justa, especialmente en el ámbito de la educación infantil y primaria.',
+      'Estas Jornadas han tenido como objetivo ofrecer herramientas concretas a los futuros y futuras docentes para integrar la perspectiva de género en el currículo, promoviendo contextos educativos inclusivos y corresponsables, en colaboración con la **ONG Entreculturas**.'
+    ].join('\n');
+  }
+  function promptFondo() {
+    const d = Motor.mezclar(S.diseno);
+    return [
+      'Crea una imagen de fondo para un certificado en formato A4 vertical (proporción 1:1,414; idealmente 2480 × 3508 píxeles).',
+      'Idea: ' + ($('ideaFondo').value.trim() || 'decoración sobria y luminosa relacionada con «' + S.act.nombre + '»') + '.',
+      'Paleta: color principal ' + d.color + ' y acento ' + d.acento + ', sobre blanco o crema muy claro.',
+      'MUY IMPORTANTE: deja limpia y muy clara toda la zona central (del 12 % al 88 % del ancho y del 10 % al 90 % del alto), porque ahí irá el texto. Los motivos decorativos, solo en los bordes y esquinas, suaves y con poco contraste.',
+      'Sin texto, letras, números, logotipos, marcos de foto ni personas reconocibles. Estilo elegante, apto para un documento oficial universitario. Sin marcas de agua.'
+    ].join('\n');
+  }
+  async function copiar(texto, idArea) {
+    const area = $(idArea); area.value = texto; area.classList.remove('oculto'); area.style.minHeight = '120px';
+    try { await navigator.clipboard.writeText(texto); aviso('Instrucción copiada. Pégala en la IA.'); }
+    catch (e) {
+      const p = $('portapapeles'); p.value = texto; p.select();
+      try { document.execCommand('copy'); aviso('Instrucción copiada. Pégala en la IA.'); }
+      catch (e2) { area.select(); aviso('Selecciona el texto y cópialo con Ctrl/Cmd + C.'); }
+    }
+  }
+
+  // ─────────── guardar / cargar ───────────
+  async function guardar() {
+    try {
+      $('btnGuardar').disabled = true;
+      await llamar('api_guardarDiseno', S.act.id, S.diseno, $('comoBase').checked);
+      S.guardado = JSON.stringify(S.diseno); S.act.conDiseno = true;
+      if ($('comoBase').checked) S.ini.hayBase = true;
+      marcarGuardado(); aviso('Diseño guardado.');
+      return true;
+    } catch (e) { alert('No se pudo guardar: ' + e.message); return false; }
+    finally { $('btnGuardar').disabled = false; }
+  }
+  async function restablecer() {
+    if (!confirm("¿Descartar los cambios no guardados?")) return;
+    S.diseno = JSON.parse(JSON.stringify(S.base || {}));
+    await prepararImagenes(); refrescarControles(); cambio();
+  }
+
+  async function cambiarActividad() {
+    if (S.diseno && JSON.stringify(S.diseno) !== S.guardado && !confirm('Hay cambios sin guardar. ¿Cambiar de actividad igualmente?')) {
+      $('actividad').value = S.act.id; return;
+    }
+    await cargarActividad($('actividad').value);
+  }
+
+  async function cargarActividad(id) {
+    cargando(true, 'Cargando la actividad…');
+    try {
+      S.act = S.ini.actividades.find((a) => a.id === id);
+      const [diseno, cola] = await Promise.all([llamar('api_diseno', id), llamar('api_cola', id)]);
+      S.diseno = Object.assign({}, diseno || {}); S.base = diseno || {};
+      S.guardado = JSON.stringify(S.diseno);
+      S.cola = cola || [];
+      await prepararImagenes();
+      refrescarControles(); pintarCola(); opcionesVista(); marcarGuardado();
+      await dibujarVista();
+    } catch (e) { alert('Error al cargar: ' + e.message); }
+    finally { cargando(false); }
+  }
+
+  function opcionesVista() {
+    const v = $('verCon'); const antes = v.value; v.innerHTML = '<option value="_ej">Datos de ejemplo</option>';
+    S.cola.forEach((p) => v.insertAdjacentHTML('beforeend', '<option value="' + p.reg + '">' + esc(p.nombre + ' ' + p.apellidos) + '</option>'));
+    if ([...v.options].some((o) => o.value === antes)) v.value = antes;
+    const r = $('verRol'); const rAntes = r.value; r.innerHTML = '';
+    S.ini.roles.forEach((x) => r.insertAdjacentHTML('beforeend', '<option>' + x + '</option>'));
+    if (rAntes) r.value = rAntes;
+    $('contador').textContent = S.cola.length;
+  }
+
+  function pestana(p) {
+    S.pestana = p;
+    $('tabDiseno').classList.toggle('activa', p === 'diseno'); $('tabGenerar').classList.toggle('activa', p === 'generar');
+    $('panelDiseno').classList.toggle('oculto', p !== 'diseno'); $('panelGenerar').classList.toggle('oculto', p !== 'generar');
+  }
+
+  // ─────────── generar ───────────
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function dniValido(dni) {
+    const m = String(dni).toUpperCase().replace(/[\s.\-]/g, '').match(/^([0-9XYZ])(\d{7})([A-Z])$/);
+    if (!m) return false;
+    const n = Number(({ X: '0', Y: '1', Z: '2' }[m[1]] || m[1]) + m[2]);
+    return 'TRWAGMYFPDXBNJZSQVHLCKE'.charAt(n % 23) === m[3];
+  }
+  function pintarCola() {
+    const tb = $('listaCola'); tb.innerHTML = '';
+    $('sinPendientes').classList.toggle('oculto', S.cola.length > 0);
+    $('tablaCola').classList.toggle('oculto', S.cola.length === 0);
+    $('btnGenerar').disabled = S.cola.length === 0;
+    S.cola.forEach((p) => {
+      const tr = document.createElement('div'); tr.className = 'persona'; tr.dataset.reg = p.reg;
+      tr.innerHTML = '<input type="checkbox" class="sel" checked>' +
+        '<input type="text" class="nombre" value="' + esc(p.nombre) + '" placeholder="Nombre">' +
+        '<input type="text" class="apellidos" value="' + esc(p.apellidos) + '" placeholder="Apellidos">' +
+        '<button class="boton peq ver" title="Ver en la vista previa">👁</button>' +
+        '<input type="text" class="dni" value="' + esc(p.dni) + '" placeholder="DNI/NIE">' +
+        '<select class="rol">' + S.ini.roles.map((r) => '<option' + (r === p.rol ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+        (p.tieneEmail ? '' : '<div class="aviso-email">⚠️ Sin correo en la bóveda: no se le podrá enviar.</div>');
+      tr.querySelectorAll('input[type=text], select').forEach((el) => el.addEventListener('input', () => {
+        tr.classList.toggle('mal', !dniValido(tr.querySelector('.dni').value));
+        if ($('verCon').value === p.reg) programarVista();
+      }));
+      tr.querySelector('.ver').onclick = () => { $('verCon').value = p.reg; $('verRol').value = tr.querySelector('.rol').value; programarVista(); };
+      tb.appendChild(tr);
+    });
+  }
+  function leerFilaEditada(p) {
+    const tr = document.querySelector('.persona[data-reg="' + p.reg + '"]');
+    if (!tr) return p;
+    return { reg: p.reg, nombre: tr.querySelector('.nombre').value.trim(), apellidos: tr.querySelector('.apellidos').value.trim(),
+      dni: tr.querySelector('.dni').value.toUpperCase().replace(/[\s.\-]/g, ''), rol: tr.querySelector('.rol').value };
+  }
+
+  async function generar() {
+    if (S.generando) return;
+    const elegidos = S.cola.filter((p) => { const tr = document.querySelector('.persona[data-reg="' + p.reg + '"]'); return tr && tr.querySelector('.sel').checked; });
+    if (!elegidos.length) { alert('Selecciona al menos una persona.'); return; }
+    const malos = elegidos.filter((p) => !dniValido(leerFilaEditada(p).dni));
+    if (malos.length) { alert('Hay ' + malos.length + ' DNI/NIE no válidos (en rojo). Corrígelos o desmárcalos.'); return; }
+    const avisos = $('avisos').textContent;
+    if (/no cabe/.test(avisos)) { alert('El texto no cabe en una página. Acórtalo antes de generar.'); return; }
+    if (!confirm('Se van a generar ' + elegidos.length + ' certificado(s) de «' + S.act.nombre + '» con el diseño actual.\n\n¿Continuar?')) return;
+    if (JSON.stringify(S.diseno) !== S.guardado && !(await guardar())) return;
+
+    S.generando = true; $('btnGenerar').disabled = true;
+    $('progreso').classList.remove('oculto'); $('registro').textContent = '';
+    const log = (t) => { $('registro').textContent += t + '\n'; $('registro').scrollTop = 1e9; };
+    let hechos = 0, fallos = 0;
+    try {
+      const codigos = await llamar('api_reservar', elegidos.map((p) => p.reg));
+      for (let i = 0; i < elegidos.length; i++) {
+        const orig = elegidos[i], p = leerFilaEditada(orig), codigo = codigos[orig.reg];
+        $('textoProgreso').textContent = 'Generando ' + (i + 1) + ' de ' + elegidos.length + '…';
+        try {
+          if (!codigo) throw new Error('ya no estaba pendiente');
+          const bytes = await pdfDe(p, p.rol, codigo);
+          const cambios = {};
+          if (p.nombre !== orig.nombre) cambios.nombre = p.nombre;
+          if (p.apellidos !== orig.apellidos) cambios.apellidos = p.apellidos;
+          if (p.dni !== orig.dni) cambios.dni = p.dni;
+          if (p.rol !== orig.rol) cambios.rol = p.rol;
+          await llamar('api_guardarPdf', orig.reg, codigo, bytesABase64(bytes), Object.keys(cambios).length ? cambios : null);
+          hechos++; log('✓ ' + p.nombre + ' ' + p.apellidos + ' · ' + codigo);
+          const tr = document.querySelector('.persona[data-reg="' + orig.reg + '"]'); if (tr) tr.classList.add('hecho');
+        } catch (e) { fallos++; log('✗ ' + p.nombre + ' ' + p.apellidos + ': ' + e.message); }
+        $('barra').style.width = Math.round((i + 1) * 100 / elegidos.length) + '%';
+      }
+      await llamar('api_finTanda', hechos);
+      $('textoProgreso').textContent = 'Terminado: ' + hechos + ' generado(s)' + (fallos ? ', ' + fallos + ' con error' : '') +
+        '. Están en la carpeta «Para firmar» del primer firmante, que ya ha recibido el aviso.';
+    } catch (e) { log('✗ ' + e.message); }
+    finally {
+      S.generando = false; $('btnGenerar').disabled = false;
+      S.cola = await llamar('api_cola', S.act.id); S.act.pendientes = S.cola.length;
+      pintarCola(); opcionesVista(); actualizarSelector();
+    }
+  }
+
+  async function pdfPrueba() {
+    try {
+      $('btnPrueba').disabled = true;
+      const per = personaVista();
+      const bytes = await pdfDe(per, $('verRol').value, null);
+      const url = await llamar('api_guardarPrueba', bytesABase64(bytes), 'Prueba ' + S.act.nombre);
+      window.open(url, '_blank');
+      aviso('PDF de prueba guardado en «Pruebas de diseño».');
+    } catch (e) { alert('No se pudo crear el PDF de prueba: ' + e.message); }
+    finally { $('btnPrueba').disabled = false; }
+  }
+
+  function actualizarSelector() {
+    const s = $('actividad'), v = s.value; s.innerHTML = '';
+    S.ini.actividades.forEach((a) => s.insertAdjacentHTML('beforeend', '<option value="' + a.id + '">' +
+      esc(a.nombre) + (a.pendientes ? '  · ' + a.pendientes + ' pendiente(s)' : '') + (a.conDiseno ? '  · 🎨' : '') + '</option>'));
+    if (v) s.value = v;
+  }
+
+  // ─────────── arranque ───────────
+  async function arrancar() {
+    try {
+      if (typeof PDFLib === 'undefined') throw new Error('No se han podido cargar las librerías (¿sin conexión?).');
+      cargando(true, 'Preparando logos y tipografías…');
+      await Promise.all([registrarImagen('pastoral', LOGOS.pastoral), registrarImagen('safa', LOGOS.safa), registrarImagen('uja', LOGOS.uja)]);
+      S.ini = await llamar('api_inicio');
+      if (!S.ini.actividades.length) { cargando(true, 'No hay actividades. Escríbelas en la hoja «Actividades» y vuelve a abrir el editor.'); return; }
+      miniPlantillas(); enlazarControles(); actualizarSelector();
+      const primera = S.ini.actividades.find((a) => a.pendientes) || S.ini.actividades[0];
+      $('actividad').value = primera.id;
+      await fuente('opensans');
+      await cargarActividad(primera.id);
+      if (primera.pendientes) pestana('diseno');
+    } catch (e) { cargando(true, 'Error: ' + e.message); }
+  }
+  arrancar();
+})();
+</script>
+</body>
+</html>
