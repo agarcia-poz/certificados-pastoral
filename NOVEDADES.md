@@ -1,5 +1,9 @@
 # Novedades
 
+## 2.2.2 (2026-10-20)
+- Si la instalación falla, el mensaje dice la versión, el paso y la línea.
+- Abrir o cerrar el formulario ya no detiene la instalación.
+
 ## 2.2.1 (2026-10-20)
 - Creación del formulario más robusta: si Google rechaza un elemento, el aviso dice cuál.
 

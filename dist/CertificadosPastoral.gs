@@ -14,7 +14,7 @@
  * ============================================================================
  */
 
-const VERSION_APP = '2.2.1';
+const VERSION_APP = '2.2.2';
 
 // ─────────────────────────────── CONFIGURACIÓN TÉCNICA ──────────────────────
 // Los firmantes, cargos y correos de aviso se cambian en la hoja «Ajustes», no aquí.
@@ -396,7 +396,24 @@ function guardarDiseno_(id, nombre, texto) {
 }
 
 // ─────────────────────────────── INSTALACIÓN ────────────────────────────────
+let PASO_INSTALACION_ = '';
+
+/** Instala o repara la app. Si algo falla, dice en qué paso y en qué línea. */
 function instalar() {
+  try { instalarPasos_(); }
+  catch (err) {
+    // Primera línea de la pila que no sea de Google: función y línea de este archivo donde falló
+    const marcos = String(err.stack || '').split('\n').filter(function (l) { return /\bat\b/.test(l); });
+    const m = (marcos[0] || '').match(/at (\S+) \(.*?:(\d+):\d+\)/);
+    const donde = m ? ' · ' + m[1] + ', línea ' + m[2] : '';
+    const msg = 'Versión ' + VERSION_APP + ' · paso «' + PASO_INSTALACION_ + '»' + donde + ': ' + err.message;
+    try { registrar_('Error de instalación', msg); } catch (e) { }
+    throw new Error(msg);
+  }
+}
+
+function instalarPasos_() {
+  PASO_INSTALACION_ = 'hojas de gestión';
   const ss = SpreadsheetApp.getActive();
   const props = PropertiesService.getScriptProperties();
   props.setProperty(PROP.SS, ss.getId());
@@ -463,6 +480,7 @@ function instalar() {
   proteger_(shR.getRange(1, 1, shR.getMaxRows(), 4), 'Registro de actividad: solo lo escribe el script');
 
   // 2. Bóveda (archivo aparte, sin compartir)
+  PASO_INSTALACION_ = 'bóveda';
   let boveda = null;
   const idB = props.getProperty(PROP.BOVEDA);
   if (idB) { try { boveda = SpreadsheetApp.openById(idB); } catch (err) { boveda = null; } }
@@ -476,6 +494,7 @@ function instalar() {
   if (sobrante && boveda.getSheets().length > 1) boveda.deleteSheet(sobrante);
   quitarAccesos_(DriveApp.getFileById(boveda.getId()));
 
+  PASO_INSTALACION_ = 'carpetas de firma';
   // 3. Carpetas por firmante: «Para firmar» (coge de aquí) y «Firmados por…» (deja aquí)
   const raiz = obtenerOCrearCarpeta_(DriveApp.getRootFolder(), CONFIG.NOMBRE_CARPETA_RAIZ);
   const firmantes = leerFirmantes_();
@@ -497,12 +516,14 @@ function instalar() {
   props.setProperty(PROP.CARPETAS, JSON.stringify(carpetas));
 
   // 4. Formulario (sin hoja de respuestas)
+  PASO_INSTALACION_ = 'formulario';
   let form = null;
   const idF = props.getProperty(PROP.FORM_ID);
   if (idF) { try { form = FormApp.openById(idF); } catch (err) { form = null; } }
   if (!form) form = crearFormulario_();
 
   // 5. Activadores
+  PASO_INSTALACION_ = 'activadores';
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (['alEnviarFormulario', 'tareaPeriodica'].indexOf(t.getHandlerFunction()) > -1) ScriptApp.deleteTrigger(t);
   });
@@ -512,7 +533,9 @@ function instalar() {
   // 6. URL de verificación (si ya se ha publicado como aplicación web)
   try { const url = ScriptApp.getService().getUrl(); if (url) props.setProperty(PROP.URL_WEB, url); } catch (err) { }
 
+  PASO_INSTALACION_ = 'actividades del formulario';
   actualizarFormulario(true);
+  PASO_INSTALACION_ = 'resumen final';
   const avisos = [];
   firmantes.forEach(function (f, i) { if (!f.email) avisos.push('• Falta el email del firmante ' + (i + 1) + ' en la hoja «Ajustes».'); });
   props.setProperty('VERSION_INSTALADA', VERSION_APP);
@@ -664,8 +687,12 @@ function actualizarFormulario(silencioso) {
     throw new Error('Google no acepta los nombres de las actividades en el formulario (' + err.message + '). ' +
       'Revisa que no haya dos iguales ni nombres vacíos o muy largos en «Actividades».');
   }
-  form.setAcceptingResponses(filas.length > 0);
-  if (!filas.length) form.setCustomClosedFormMessage('Ahora mismo no hay actividades abiertas para registrarse.');
+  // Abrir o cerrar el formulario es accesorio: si Google lo rechaza, se sigue y queda anotado
+  try { form.setAcceptingResponses(filas.length > 0); } catch (err) { registrar_('Aviso formulario', 'abrir/cerrar: ' + err.message); }
+  if (!filas.length) {
+    try { form.setCustomClosedFormMessage('Ahora mismo no hay actividades abiertas para registrarse.'); }
+    catch (err) { registrar_('Aviso formulario', 'mensaje de cerrado: ' + err.message); }
+  }
   const anterior = JSON.parse(PropertiesService.getScriptProperties().getProperty(PROP.MAPA) || '{}');
   Object.keys(anterior).forEach(function (k) { if (!mapa[k]) mapa[k] = anterior[k]; });
   PropertiesService.getScriptProperties().setProperty(PROP.MAPA, JSON.stringify(mapa));
