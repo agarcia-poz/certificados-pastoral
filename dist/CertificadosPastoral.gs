@@ -14,7 +14,7 @@
  * ============================================================================
  */
 
-const VERSION_APP = '2.2.0';
+const VERSION_APP = '2.2.1';
 
 // ─────────────────────────────── CONFIGURACIÓN TÉCNICA ──────────────────────
 // Los firmantes, cargos y correos de aviso se cambian en la hoja «Ajustes», no aquí.
@@ -560,43 +560,78 @@ function prepararInicio_(ss) {
 function crearFormulario_() {
   const form = FormApp.create(CONFIG.TITULO_FORMULARIO);
   const props = PropertiesService.getScriptProperties();
-  form.setDescription('Centro Universitario «Sagrada Familia» · ' + CONFIG.NOMBRE_SERVICIO + '\n\n' +
-    'Registra aquí las actividades de Pastoral en las que has participado, organizado o coordinado, ' +
-    'y cuéntanos qué te han aportado. Con este registro preparamos tu certificado, que te llegará firmado por correo.');
-  form.setAllowResponseEdits(false);
-  form.setPublishingSummary(false);
-  form.setShowLinkToRespondAgain(true);
-  form.setConfirmationMessage('¡Gracias! Te hemos enviado un correo de confirmación. ' +
-    'Cuando el certificado esté firmado te llegará a este mismo correo.');
-  try { form.setEmailCollectionType(FormApp.EmailCollectionType.VERIFIED); }
-  catch (err) { form.setCollectEmail(true); }
-  if (CONFIG.SOLO_CUENTAS_DEL_CENTRO) { try { form.setRequireLogin(true); } catch (err) { } }
+  // Cada paso por separado: si Google rechaza uno accesorio, se sigue; si es imprescindible, se dice cuál.
+  const paso = function (nombre, fn, opcional) {
+    try { return fn(); }
+    catch (err) {
+      registrar_('Aviso formulario', nombre + ': ' + err.message);
+      if (opcional) return null;
+      try { DriveApp.getFileById(form.getId()).setTrashed(true); } catch (e) { }
+      throw new Error('No se pudo crear el formulario (paso «' + nombre + '»): ' + err.message);
+    }
+  };
+  paso('descripción', function () {
+    form.setDescription('Centro Universitario «Sagrada Familia» · ' + CONFIG.NOMBRE_SERVICIO + '\n\n' +
+      'Registra aquí las actividades de Pastoral en las que has participado, organizado o coordinado, ' +
+      'y cuéntanos qué te han aportado. Con este registro preparamos tu certificado, que te llegará firmado por correo.');
+  }, true);
+  paso('sin edición de respuestas', function () { form.setAllowResponseEdits(false); }, true);
+  paso('sin resumen público', function () { form.setPublishingSummary(false); }, true);
+  paso('mensaje de confirmación', function () {
+    form.setConfirmationMessage('¡Gracias! Te hemos enviado un correo de confirmación. ' +
+      'Cuando el certificado esté firmado te llegará a este mismo correo.');
+  }, true);
+  paso('recoger correo', function () {
+    try { form.setEmailCollectionType(FormApp.EmailCollectionType.VERIFIED); }
+    catch (err) { form.setCollectEmail(true); }
+  });
+  if (CONFIG.SOLO_CUENTAS_DEL_CENTRO) paso('solo cuentas del centro', function () { form.setRequireLogin(true); }, true);
 
-  const nombre = form.addTextItem().setTitle('Nombre').setRequired(true);
-  const apellidos = form.addTextItem().setTitle('Apellidos').setRequired(true);
-  const dni = form.addTextItem().setTitle('DNI / NIE')
-    .setHelpText('Aparecerá en tu certificado. Con letra y sin espacios, por ejemplo 12345678Z.')
-    .setRequired(true)
-    .setValidation(FormApp.createTextValidation()
-      .requireTextMatchesPattern('^ *[0-9XYZxyz][ .-]?[0-9]{2}[ .]?[0-9]{3}[ .]?[0-9]{2}[ -]?[A-Za-z] *$')
-      .setHelpText('Escribe un DNI o NIE con su letra, por ejemplo 12345678Z').build());
-  const roles = form.addGridItem().setTitle('¿En qué actividades has estado y cómo?')
-    .setHelpText('Marca solo las actividades en las que has estado. Deja en blanco el resto.')
-    .setRows(['(sin actividades)']).setColumns(CONFIG.ROLES);
-  const valor = form.addGridItem().setTitle('Valora esas actividades')
-    .setHelpText('1 = me ha aportado poco · 5 = me ha aportado mucho. Es anónimo.')
-    .setRows(['(sin actividades)']).setColumns(['1', '2', '3', '4', '5']);
-  const comentario = form.addParagraphTextItem().setTitle('¿Qué te ha aportado? (opcional y anónimo)')
-    .setHelpText('Una frase, una experiencia, algo que te llevas…');
-  const citar = form.addCheckboxItem().setTitle('Boletín de Pastoral (opcional)')
-    .setChoiceValues(['Podéis citar mi comentario en el boletín, siempre sin mi nombre']);
-  form.addSectionHeaderItem().setTitle('Protección de datos').setHelpText(CONFIG.TEXTO_PRIVACIDAD);
-  const c1 = form.addCheckboxItem().setTitle('Información y tratamiento de datos').setRequired(true)
-    .setChoiceValues(['He leído la información sobre protección de datos y acepto el tratamiento de mis datos ' +
-      'para gestionar y expedir mi certificado.']);
-  const c2 = form.addCheckboxItem().setTitle('Consentimiento explícito').setRequired(true)
-    .setChoiceValues(['Consiento expresamente que se trate la información sobre mi participación en actividades del ' +
-      'Servicio de Pastoral, que podría revelar convicciones religiosas (art. 9.2.a RGPD).']);
+  const nombre = paso('campo Nombre', function () { return form.addTextItem().setTitle('Nombre').setRequired(true); });
+  const apellidos = paso('campo Apellidos', function () { return form.addTextItem().setTitle('Apellidos').setRequired(true); });
+  const dni = paso('campo DNI', function () {
+    return form.addTextItem().setTitle('DNI / NIE').setRequired(true)
+      .setHelpText('Aparecerá en tu certificado. Con letra y sin espacios, por ejemplo 12345678Z.');
+  });
+  paso('validación del DNI', function () {
+    dni.setValidation(FormApp.createTextValidation()
+      .requireTextMatchesPattern('[0-9XYZxyz][0-9]{7}[A-Za-z]')
+      .setHelpText('Escribe el DNI o NIE con su letra y sin espacios, por ejemplo 12345678Z').build());
+  }, true);   // si falla, da igual: la app comprueba la letra del DNI y avisa por correo
+  const roles = paso('tabla de actividades', function () {
+    const g = form.addGridItem().setTitle('¿En qué actividades has estado y cómo?');
+    g.setColumns(CONFIG.ROLES);
+    g.setRows(['(sin actividades)']);
+    return g.setHelpText('Marca solo las actividades en las que has estado. Deja en blanco el resto.');
+  });
+  const valor = paso('tabla de valoración', function () {
+    const g = form.addGridItem().setTitle('Valora esas actividades');
+    g.setColumns(['1', '2', '3', '4', '5']);
+    g.setRows(['(sin actividades)']);
+    return g.setHelpText('1 = me ha aportado poco · 5 = me ha aportado mucho. Es anónimo.');
+  });
+  const comentario = paso('comentario', function () {
+    return form.addParagraphTextItem().setTitle('¿Qué te ha aportado? (opcional y anónimo)')
+      .setHelpText('Una frase, una experiencia, algo que te llevas…');
+  });
+  const citar = paso('casilla del boletín', function () {
+    const c = form.addCheckboxItem().setTitle('Boletín de Pastoral (opcional)');
+    c.setChoiceValues(['Podéis citar mi comentario en el boletín, siempre sin mi nombre']);
+    return c;
+  });
+  paso('texto de privacidad', function () {
+    form.addSectionHeaderItem().setTitle('Protección de datos').setHelpText(CONFIG.TEXTO_PRIVACIDAD);
+  }, true);
+  const c1 = paso('consentimiento 1', function () {
+    const c = form.addCheckboxItem().setTitle('Información y tratamiento de datos');
+    c.setChoiceValues(['He leído la información sobre protección de datos y acepto el tratamiento de mis datos para gestionar y expedir mi certificado.']);
+    return c.setRequired(true);
+  });
+  const c2 = paso('consentimiento 2', function () {
+    const c = form.addCheckboxItem().setTitle('Consentimiento explícito');
+    c.setChoiceValues(['Consiento expresamente que se trate la información sobre mi participación en actividades del Servicio de Pastoral, que podría revelar convicciones religiosas (art. 9.2.a RGPD).']);
+    return c.setRequired(true);
+  });
 
   props.setProperty(PROP.FORM_ID, form.getId());
   props.setProperty(PROP.ITEMS, JSON.stringify({
@@ -622,8 +657,13 @@ function actualizarFormulario(silencioso) {
     return etiqueta;
   });
   const visibles = filas.length ? filas : ['(ahora mismo no hay actividades abiertas)'];
-  form.getItemById(items.roles).asGridItem().setRows(visibles);
-  form.getItemById(items.valor).asGridItem().setRows(visibles);
+  try {
+    form.getItemById(items.roles).asGridItem().setRows(visibles);
+    form.getItemById(items.valor).asGridItem().setRows(visibles);
+  } catch (err) {
+    throw new Error('Google no acepta los nombres de las actividades en el formulario (' + err.message + '). ' +
+      'Revisa que no haya dos iguales ni nombres vacíos o muy largos en «Actividades».');
+  }
   form.setAcceptingResponses(filas.length > 0);
   if (!filas.length) form.setCustomClosedFormMessage('Ahora mismo no hay actividades abiertas para registrarse.');
   const anterior = JSON.parse(PropertiesService.getScriptProperties().getProperty(PROP.MAPA) || '{}');

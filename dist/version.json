@@ -1,5 +1,5 @@
 {
-  "version": "2.2.0",
+  "version": "2.2.1",
   "fecha": "2026-10-20",
-  "novedades": "- La app entera va en un solo archivo: se instala y se actualiza copiando y pegando, sin manifiesto ni API.\n- «Actualizar la app» avisa de la versión nueva, sus novedades y el enlace al archivo.\n- Logos más ligeros."
+  "novedades": "- Creación del formulario más robusta: si Google rechaza un elemento, el aviso dice cuál."
 }

@@ -1,5 +1,8 @@
 # Novedades
 
+## 2.2.1 (2026-10-20)
+- Creación del formulario más robusta: si Google rechaza un elemento, el aviso dice cuál.
+
 ## 2.2.0 (2026-10-20)
 - La app entera va en un solo archivo: se instala y se actualiza copiando y pegando, sin manifiesto ni API.
 - «Actualizar la app» avisa de la versión nueva, sus novedades y el enlace al archivo.
