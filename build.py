@@ -21,7 +21,10 @@ def main():
     if DIST.exists():
         shutil.rmtree(DIST)
     DIST.mkdir()
-    servidor = (SRC / 'Servidor.gs').read_text(encoding='utf-8')
+    # Servidor primero; luego el resto de módulos .gs en orden fijo
+    modulos = ['Servidor.gs', 'Formularios.gs', 'Hojas.gs', 'Automatico.gs', 'IA.gs']
+    assert sorted(modulos) == sorted(f.name for f in SRC.glob('*.gs')), 'Añade el módulo nuevo a la lista de build.py'
+    servidor = '\n\n'.join((SRC / m).read_text(encoding='utf-8').rstrip() for m in modulos)
     motor = (SRC / 'motor.js').read_text(encoding='utf-8')
     assert '</script' not in motor
     logos = {'pastoral': 'data:image/png;base64,' + b64('logo-pastoral.png'),
@@ -31,6 +34,9 @@ def main():
         'Panel': (SRC / 'Panel.html').read_text(encoding='utf-8'),
         'Editor': (SRC / 'Editor.html').read_text(encoding='utf-8'),
         'Publico': (SRC / 'Publico.html').read_text(encoding='utf-8'),
+        'Estilos': (SRC / 'Estilos.html').read_text(encoding='utf-8'),
+        'Iconos': (SRC / 'Iconos.html').read_text(encoding='utf-8'),
+        'FormVista': (SRC / 'FormVista.html').read_text(encoding='utf-8'),
         'Motor': '<script>\n' + motor + '\n</script>\n',
         'Logos': '<script>\nconst LOGOS = ' + json.dumps(logos) + ';\n</script>\n',
     }

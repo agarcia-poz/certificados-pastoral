@@ -13,6 +13,7 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
     const datos = [];
     const sh = {
       getName: () => nombre, getMaxRows: () => 1000, getParent: () => libro,
+      getLastColumn: () => Math.max(0, ...datos.map(f => (f || []).length)),
       getLastRow: () => { for (let r = datos.length; r > 0; r--) if ((datos[r - 1] || []).some(v => v !== '' && v != null)) return r; return 0; },
       appendRow: (fila) => { datos[sh.getLastRow()] = fila.slice(); },
       deleteRow: (r) => { datos.splice(r - 1, 1); },
@@ -61,6 +62,7 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
       createFolder: (n) => carpetaFalsa(n, id),
       createFile: (blob) => archivoFalso(blob.getName(), blob._bytes, id, 'propietario', blob.getContentType()),
       getFiles: () => iter(Object.values(estado.archivos).filter(f => f.carpeta === id && !f.papelera)),
+      getFilesByName: (n) => iter(Object.values(estado.archivos).filter(f => f.carpeta === id && !f.papelera && f.nombre === n)),
       getFilesByType: () => c.getFiles(),
       getParents: () => iter(estado.carpetas[padre] ? [estado.carpetas[padre]] : []),
       addViewer: () => c, addEditor: () => c
@@ -104,10 +106,10 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
 
   const gestion = libroFalso('Pastoral · Certificados');
   const ctx = {
-    console, Date, JSON, Math, String, Number, Object, Array, RegExp, Buffer,
+    console, Buffer,
     SpreadsheetApp: {
       getActive: () => gestion, getActiveSpreadsheet: () => gestion,
-      openById: (id) => estado.libros[id], create: (n) => { const l = libroFalso(n); l.insertSheet('Hoja 1'); return l; },
+      openById: (id) => { if (!estado.libros[id]) throw new Error('No se encuentra ' + id); return estado.libros[id]; }, create: (n) => { const l = libroFalso(n); l.insertSheet('Hoja 1'); return l; },
       getUi: () => ({ alert: (m) => { estado.alertas.push(m); return 'YES'; }, showModalDialog: (h) => { (estado.dialogos = estado.dialogos || []).push(h.html); }, ButtonSet: {}, Button: { YES: 'YES' } }),
       newDataValidation: () => encadenable({ build: () => ({}) }),
       newConditionalFormatRule: () => encadenable({ build: () => ({}) }),
@@ -120,24 +122,27 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
       _raiz: () => raizDrive,
       Access: {}, Permission: {}
     },
-    MailApp: { sendEmail: (para, asunto, texto, op) => estado.correos.push({ para, asunto, texto, html: op.htmlBody, adjuntos: op.attachments || [] }) },
+    MailApp: { sendEmail: (para, asunto, texto, op) => estado.correos.push({ para, asunto, texto, html: op.htmlBody, adjuntos: op.attachments || [] }), getRemainingDailyQuota: () => 1500 },
     Utilities: {
       newBlob: (datos, tipo, nombre) => blobFalso(datos, nombre, tipo),
-      computeDigest: (_, s) => [...crypto.createHash('sha256').update(s, 'utf8').digest()].map(b => b > 127 ? b - 256 : b),
+      computeDigest: (_, s) => [...crypto.createHash('sha256').update(Array.isArray(s) ? aBuffer(s) : s, Array.isArray(s) ? undefined : 'utf8').digest()].map(b => b > 127 ? b - 256 : b),
       getUuid: () => crypto.randomUUID(),
       base64Encode: (b) => aBuffer(b).toString('base64'),
       base64Decode: (s) => [...Buffer.from(s, 'base64')].map(x => x > 127 ? x - 256 : x),
       formatDate: (d) => new Date(d).toISOString().slice(0, 16).replace('T', ' '),
       zip: (blobs, nombre) => blobFalso(Buffer.concat(blobs.map(b => b._bytes)), nombre, 'application/zip'), DigestAlgorithm: { SHA_256: 1 }, Charset: { UTF_8: 'utf8' }
     },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => estado.props[k] ?? null, setProperty: (k, v) => { estado.props[k] = v; }, setProperties: (o) => { Object.assign(estado.props, o); } }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => estado.props[k] ?? null, setProperty: (k, v) => { estado.props[k] = String(v); }, setProperties: (o) => { Object.assign(estado.props, o); }, deleteProperty: (k) => { delete estado.props[k]; } }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
     ScriptApp: { getProjectTriggers: () => [], deleteTrigger: () => {}, newTrigger: () => encadenable({}), getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/XYZ/exec' }),
       getScriptId: () => 'SCRIPT123', getOAuthToken: () => 'token' },
     UrlFetchApp: { fetch: (url, op = {}) => {
       estado.peticiones.push({ url, op });
-      const r = estado.web[url] !== undefined ? estado.web[url] : (op.method === 'put' ? { code: 200, text: '{}' } : { code: 404, text: 'no' });
-      return { getResponseCode: () => r.code, getContentText: () => r.text };
+      let r = estado.web[url] !== undefined ? estado.web[url] : (estado.webPor ? estado.webPor(url, op) : undefined);
+      if (typeof r === 'function') r = r(op);
+      if (!r) r = { code: 404, text: 'no' };
+      return { getResponseCode: () => r.code, getContentText: () => (r.bytes ? Buffer.from(r.bytes).toString('utf8') : r.text),
+        getContent: () => [...(r.bytes || Buffer.from(r.text || ''))].map(x => x > 127 ? x - 256 : x) };
     } },
     Session: { getEffectiveUser: () => ({ getEmail: () => propietario }), getActiveUser: () => ({ getEmail: () => estado.usuario }), getScriptTimeZone: () => 'Europe/Madrid' },
     HtmlService: {

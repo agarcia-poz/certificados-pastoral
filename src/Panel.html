@@ -10,196 +10,280 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <?!= incluir_('Motor') ?>
 <?!= incluir_('Logos') ?>
+<?!= incluir_('Estilos') ?>
 <style>
-  :root {
-    --verde: #2e7d4f; --verde-osc: #1f5c39; --verde-claro: #e8f3ec; --oro: #f2c14e;
-    --texto: #1f2a33; --suave: #5d6b75; --borde: #dfe6e2; --fondo: #f4f6f5; --blanco: #fff;
-    --mal: #b3261e; --mal-claro: #fbe9e7; --aviso: #8a5a00; --aviso-claro: #fff4dc; --azul: #2a6096; --azul-claro: #eaf2f9;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; font-family: "Open Sans", Arial, Helvetica, sans-serif; color: var(--texto); background: var(--fondo); font-size: 14px; }
-  button { font: inherit; }
-  a { color: var(--verde-osc); }
-  .oculto { display: none !important; }
-  .boton { border: 1px solid var(--borde); background: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--texto); }
-  .boton:hover { background: var(--fondo); }
-  .boton.primario { background: var(--verde); border-color: var(--verde); color: #fff; }
-  .boton.primario:hover { background: var(--verde-osc); }
-  .boton.peligro { color: var(--mal); }
-  .boton.peq { padding: 4px 9px; font-size: 12px; }
-  .boton:disabled { opacity: .5; cursor: default; }
-  input[type=text], input[type=email], input[type=number], select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 7px; font: inherit; color: var(--texto); background: #fff; }
-  input:focus, select:focus, textarea:focus { outline: 2px solid #a9d3b8; border-color: var(--verde); }
-  label { display: block; font-weight: 600; font-size: 12.5px; color: var(--suave); margin: 12px 0 5px; }
-  .ayuda { font-size: 12px; color: var(--suave); line-height: 1.45; }
-  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1f2a33; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+  html, body { height: 100%; }
+  body { font-size: 14.5px; }
 
-  /* Acceso */
-  .pn-acceso { min-height: 100vh; display: flex; flex-direction: column; }
-  .pn-franja { height: 14px; background: var(--verde); border-bottom: 4px solid var(--oro); }
-  .pn-franja.abajo { border-bottom: 0; border-top: 4px solid var(--oro); height: 10px; margin-top: auto; }
-  .pn-tarjeta { width: 100%; max-width: 420px; margin: 7vh auto 30px; background: #fff; border-radius: 16px; padding: 30px 28px; box-shadow: 0 10px 34px rgba(20,50,30,.10); }
-  .pn-tarjeta img { display: block; width: 210px; margin: 0 auto 10px; }
-  .pn-tarjeta h1 { font-size: 20px; text-align: center; margin: 6px 0 4px; }
-  .pn-tarjeta .sub { text-align: center; color: var(--suave); margin: 0 0 18px; font-size: 13px; }
-  .pn-tarjeta .boton { width: 100%; margin-top: 16px; padding: 11px; }
-  .pn-codigo { font-size: 26px !important; letter-spacing: 10px; text-align: center; font-weight: 700; }
-  .pn-error { background: var(--mal-claro); color: var(--mal); padding: 9px 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; }
+  /* ── Acceso ── */
+  .pn-acceso { min-height: 100vh; display: flex; flex-direction: column; background:
+    radial-gradient(1200px 500px at 10% -10%, #e6f1f8 0%, transparent 60%), radial-gradient(900px 400px at 110% 110%, #fce6f2 0%, transparent 55%), var(--fondo); }
+  .pn-tarjeta { width: calc(100% - 32px); max-width: 430px; margin: 8vh auto 32px; background: #fff; border-radius: 20px; box-shadow: var(--sombra-alta); overflow: hidden; }
+  .pn-tarjeta .cuerpo { padding: 30px 30px 28px; }
+  .pn-tarjeta img { display: block; width: 210px; margin: 0 auto 14px; }
+  .pn-tarjeta h1 { font-size: 23px; text-align: center; margin: 4px 0 4px; }
+  .pn-tarjeta .sub { text-align: center; color: var(--suave); margin: 0 0 20px; font-size: 14px; }
+  .pn-tarjeta .boton { width: 100%; margin-top: 16px; }
+  .pn-codigo { font-family: var(--titulos); font-size: 28px !important; letter-spacing: 12px; text-align: center; font-weight: 600; }
+  .pn-pie-acceso { text-align: center; color: var(--suave); font-size: 12.5px; margin: 0 0 24px; }
 
-  /* Estructura */
-  .pn-app { display: grid; grid-template-columns: 236px 1fr; height: 100vh; }
-  .pn-lateral { background: #fff; border-right: 1px solid var(--borde); display: flex; flex-direction: column; min-height: 0; }
-  .pn-lateral .franja { height: 8px; background: var(--verde); border-bottom: 3px solid var(--oro); }
-  .pn-lateral .logo { padding: 18px 18px 8px; }
-  .pn-lateral .logo img { width: 160px; display: block; }
-  .pn-lateral .logo div { font-size: 11px; color: var(--suave); margin-top: 6px; letter-spacing: .3px; }
-  .pn-nav { padding: 8px 10px; flex: 1; overflow-y: auto; }
-  .pn-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; color: var(--texto); text-decoration: none; font-weight: 600; font-size: 13.5px; margin-bottom: 2px; cursor: pointer; }
+  /* ── Estructura ── */
+  .pn-app { display: grid; grid-template-columns: 264px 1fr; height: 100vh; }
+  .pn-lateral { background: #fff; border-right: 1px solid var(--borde); display: flex; flex-direction: column; min-height: 0; z-index: 30; }
+  .pn-marca { padding: 18px 20px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .pn-marca img { width: 168px; display: block; }
+  .pn-marca span { font-size: 12px; color: var(--suave); font-weight: 600; letter-spacing: .02em; }
+  .pn-nav { padding: 6px 12px 12px; flex: 1; overflow-y: auto; }
+  .pn-grupo { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #6b7884; margin: 16px 10px 6px; }
+  .pn-nav a { position: relative; display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 8px 12px; border-radius: 10px; color: var(--texto);
+    text-decoration: none; font-weight: 600; font-size: 14.5px; margin-bottom: 2px; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+  .pn-nav a .ic { color: #6b7884; transition: color .15s ease; }
   .pn-nav a:hover { background: var(--fondo); }
-  .pn-nav a.activo { background: var(--verde-claro); color: var(--verde-osc); }
-  .pn-nav a .ic { width: 20px; text-align: center; }
-  .pn-nav a .num { margin-left: auto; background: var(--oro); color: #4a3700; border-radius: 10px; font-size: 11px; padding: 0 7px; min-width: 20px; text-align: center; }
-  .pn-nav .sep { height: 1px; background: var(--borde); margin: 10px 6px; }
-  .pn-usuario { border-top: 1px solid var(--borde); padding: 12px 16px; font-size: 12.5px; }
-  .pn-usuario b { display: block; font-size: 13px; }
-  .pn-usuario span { color: var(--suave); }
-  .pn-contenido { overflow-y: auto; min-height: 0; }
-  .vista { min-height: 100%; }
-  .pn-vista { max-width: 1120px; margin: 0 auto; padding: 28px 32px 60px; }
-  .pn-titulo { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
-  .pn-titulo h2 { margin: 0; font-size: 22px; }
+  .pn-nav a.activo { background: var(--azul-claro); color: var(--azul-osc); }
+  .pn-nav a.activo .ic { color: var(--azul); }
+  .pn-nav a.activo::before { content: ''; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 4px; border-radius: 0 4px 4px 0; background: var(--azul); }
+  .pn-nav .num { margin-left: auto; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 11px; background: var(--aviso-claro); color: var(--aviso); font-size: 12px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; }
+  .pn-usuario { border-top: 1px solid var(--borde); padding: 12px 14px 14px 20px; display: flex; align-items: center; gap: 10px; }
+  .pn-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--azul); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--titulos); font-weight: 600; flex: none; }
+  .pn-usuario b { display: block; font-size: 13.5px; line-height: 1.3; }
+  .pn-usuario span { color: var(--suave); font-size: 12.5px; }
+  .pn-usuario .boton { margin-left: auto; }
+  .pn-movil { display: none; }
+  .pn-contenido { overflow-y: auto; min-height: 0; position: relative; }
+  .pn-vista { max-width: 1180px; margin: 0 auto; padding: 30px 36px 80px; }
+  .pn-titulo { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 6px; flex-wrap: wrap; }
+  .pn-titulo h1 { margin: 0; font-size: 27px; line-height: 1.2; }
   .pn-titulo .acciones { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-  .pn-lead { color: var(--suave); margin: -8px 0 20px; line-height: 1.5; }
+  .pn-lead { color: var(--suave); margin: 4px 0 22px; max-width: 760px; font-size: 15px; }
 
-  .tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; }
-  .dato { background: #fff; border: 1px solid var(--borde); border-radius: 12px; padding: 16px; cursor: pointer; }
-  .dato:hover { border-color: #b9d6c4; }
-  .dato .n { font-size: 30px; font-weight: 700; color: var(--verde-osc); line-height: 1.1; }
-  .dato .t { color: var(--suave); font-size: 12.5px; margin-top: 4px; }
-  .dato.alerta .n { color: var(--mal); }
-  .caja { background: #fff; border: 1px solid var(--borde); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
-  .caja h3 { margin: 0 0 10px; font-size: 15px; }
-  .aviso { background: var(--aviso-claro); color: var(--aviso); border-radius: 10px; padding: 11px 14px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
-  .nota { background: var(--azul-claro); border-radius: 10px; padding: 11px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
-  .enlace-copia { display: flex; gap: 8px; align-items: center; }
-  .enlace-copia input { font-size: 12.5px; color: var(--suave); }
-  .qr { display: flex; gap: 18px; align-items: center; }
-  .qr canvas { border: 1px solid var(--borde); border-radius: 8px; }
+  /* ── Piezas ── */
+  .caja { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--sombra); }
+  .caja > h2, .caja > h3 { margin: 0 0 12px; font-size: 17px; display: flex; align-items: center; gap: 10px; }
+  .caja > h2 .acciones, .caja > h3 .acciones { margin-left: auto; display: flex; gap: 6px; }
+  .rejilla { display: grid; gap: 16px; }
+  .r2 { grid-template-columns: 1fr 1fr; } .r3 { grid-template-columns: repeat(3, 1fr); }
+  .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; } .fila3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .tile { display: flex; flex-direction: column; gap: 10px; text-align: left; background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); padding: 16px; cursor: pointer; box-shadow: var(--sombra);
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; font: inherit; color: inherit; }
+  .tile:hover { border-color: var(--azul-borde); transform: translateY(-1px); }
+  .tile .icono-tile { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; }
+  .tile .n { font-family: var(--titulos); font-size: 30px; font-weight: 600; line-height: 1; }
+  .tile .t { color: var(--suave); font-size: 13.5px; font-weight: 600; }
+  .tile.cero { box-shadow: none; background: #fafbfc; }
+  .tile.cero .n { color: #9aa6b1; }
+  .t-azul .icono-tile { background: var(--azul-claro); color: var(--azul-osc); } .t-naranja .icono-tile { background: var(--aviso-claro); color: var(--aviso); }
+  .t-indigo .icono-tile { background: #ECEAF7; color: var(--indigo); } .t-magenta .icono-tile { background: #FCE6F2; color: #A3005A; }
+  .t-marron .icono-tile { background: #F4ECE4; color: #6E4521; } .t-verde .icono-tile { background: var(--ok-claro); color: var(--ok); } .t-rojo .icono-tile { background: var(--mal-claro); color: var(--mal); }
 
-  table.tabla { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; }
-  .tabla th { text-align: left; font-size: 11.5px; color: var(--suave); text-transform: uppercase; letter-spacing: .4px; padding: 10px 12px; background: #fafbfa; border-bottom: 1px solid var(--borde); }
-  .tabla td { padding: 10px 12px; border-bottom: 1px solid #eef2ef; vertical-align: middle; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; line-height: 1.4; }
+  .c-naranja { background: var(--aviso-claro); color: var(--aviso); } .c-azul { background: var(--azul-claro); color: var(--azul-osc); }
+  .c-indigo { background: #ECEAF7; color: var(--indigo); } .c-magenta { background: #FCE6F2; color: #A3005A; } .c-marron { background: #F4ECE4; color: #6E4521; }
+  .c-verde { background: var(--ok-claro); color: var(--ok); } .c-rojo { background: var(--mal-claro); color: var(--mal); } .c-gris { background: #EEF1F4; color: #4A5560; }
+
+  .tabla-env { overflow-x: auto; border: 1px solid var(--borde); border-radius: var(--radio); background: #fff; box-shadow: var(--sombra); }
+  table.tabla { width: 100%; border-collapse: collapse; }
+  .tabla th { text-align: left; font-size: 12px; color: var(--suave); text-transform: uppercase; letter-spacing: .05em; padding: 11px 14px; background: #f8fafb; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+  .tabla td { padding: 11px 14px; border-bottom: 1px solid #edf1f4; vertical-align: middle; }
   .tabla tr:last-child td { border-bottom: 0; }
-  .tabla tr:hover td { background: #fbfcfb; }
-  .tabla select { padding: 5px 7px; width: auto; }
+  .tabla tbody tr:hover td { background: #fafcfd; }
+  .tabla select { width: auto; min-height: 36px; padding: 5px 8px; font-size: 13.5px; }
   .tabla .acc { white-space: nowrap; text-align: right; }
-  .vacio { text-align: center; color: var(--suave); padding: 34px 10px; background: #fff; border: 1px dashed var(--borde); border-radius: 12px; }
-  .chipe { display: inline-block; padding: 2px 9px; border-radius: 11px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-  .e-pendiente { background: var(--aviso-claro); color: var(--aviso); }
-  .e-validada, .e-generando { background: var(--azul-claro); color: var(--azul); }
-  .e-firma { background: #efe9f8; color: #5b2c83; }
-  .e-enviado { background: var(--verde-claro); color: var(--verde-osc); }
-  .e-rechazada, .e-anulado { background: #eceeed; color: #6b7570; }
-  .e-revisar { background: var(--mal-claro); color: var(--mal); }
-  .filtros { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-  .filtros select, .filtros input { width: auto; min-width: 200px; }
-  .seg { display: inline-flex; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; background: #fff; }
-  .seg button { border: 0; background: none; padding: 7px 12px; cursor: pointer; color: var(--suave); font-weight: 600; font-size: 12.5px; }
-  .seg button.activo { background: var(--verde); color: #fff; }
-  .barra-lote { position: sticky; bottom: 0; background: #1f2a33; color: #fff; padding: 10px 14px; border-radius: 10px; display: flex; gap: 8px; align-items: center; margin-top: 12px; }
-  .barra-lote .boton { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
-  .barra-lote .boton.primario { background: var(--verde); border-color: var(--verde); }
-  .pn-switch { position: relative; display: inline-block; width: 38px; height: 22px; }
-  .pn-switch input { opacity: 0; width: 0; height: 0; }
-  .pn-switch span { position: absolute; inset: 0; background: #c9d2cd; border-radius: 22px; cursor: pointer; transition: .2s; }
-  .pn-switch span::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
-  .pn-switch input:checked + span { background: var(--verde); }
-  .pn-switch input:checked + span::before { transform: translateX(16px); }
-  .soltar { border: 2px dashed #b9d6c4; background: #fbfdfb; border-radius: 14px; padding: 34px; text-align: center; color: var(--suave); cursor: pointer; transition: .15s; }
-  .soltar.encima { background: var(--verde-claro); border-color: var(--verde); color: var(--verde-osc); }
-  .soltar b { display: block; font-size: 16px; color: var(--texto); margin-bottom: 4px; }
-  .resultado { font-size: 13px; padding: 6px 0; border-bottom: 1px solid #eef2ef; }
-  .resultado.ok::before { content: '✓ '; color: var(--verde); font-weight: 700; }
-  .resultado.ko::before { content: '✗ '; color: var(--mal); font-weight: 700; }
-  .estrellas { color: #e0a31b; letter-spacing: 2px; }
-  .barras div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 3px 0; }
-  .barras i { display: block; height: 10px; background: var(--verde); border-radius: 5px; }
-  .cita { background: #fff; border-left: 3px solid var(--oro); padding: 10px 14px; margin: 8px 0; border-radius: 0 8px 8px 0; line-height: 1.5; }
-  .cita small { display: block; color: var(--suave); margin-top: 4px; }
+  .tabla input[type=checkbox], .persona input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--azul); }
+  .vacio { text-align: center; color: var(--suave); padding: 40px 16px; background: #fff; border: 1.5px dashed var(--borde-fuerte); border-radius: var(--radio); }
+  .vacio .ic { width: 34px; height: 34px; color: #9aa6b1; display: block; margin: 0 auto 10px; }
+  .vacio b { display: block; color: var(--texto); font-size: 15.5px; margin-bottom: 4px; }
 
-  .modal-fondo { position: fixed; inset: 0; background: rgba(20,30,25,.45); display: flex; align-items: center; justify-content: center; z-index: 40; padding: 20px; }
-  .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
-  .modal h3 { margin: 0 0 6px; font-size: 18px; }
-  .modal .pie { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
-  .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .fila3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-  .cargando-pn { position: fixed; inset: 0; background: rgba(255,255,255,.8); display: flex; align-items: center; justify-content: center; z-index: 60; font-weight: 600; color: var(--verde-osc); }
+  .filtros { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .filtros select, .filtros input { width: auto; min-width: 220px; }
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: #e9eef2; border-radius: 11px; }
+  .seg button { border: 0; background: none; min-height: 36px; padding: 6px 12px; border-radius: 8px; cursor: pointer; color: var(--suave); font-weight: 700; font-size: 13.5px; }
+  .seg button:hover { color: var(--texto); }
+  .seg button.activo { background: #fff; color: var(--azul-osc); box-shadow: 0 1px 3px rgba(16,40,64,.14); }
 
-  @media (max-width: 860px) {
+  .etapas { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .etapa { flex: 1 1 140px; display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--borde); background: #fff; cursor: pointer; font: inherit; color: inherit; min-height: 74px; position: relative; }
+  .etapa:hover { border-color: var(--azul-borde); }
+  .etapa.activo { border-color: var(--azul); box-shadow: var(--foco); }
+  .etapa .n { font-family: var(--titulos); font-size: 24px; font-weight: 600; line-height: 1; }
+  .etapa .t { font-size: 13px; color: var(--suave); font-weight: 700; }
+  .etapa .barra-color { position: absolute; left: 14px; right: 14px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; }
+
+  .barra-lote { position: sticky; bottom: 14px; background: #14202b; color: #fff; padding: 10px 12px 10px 18px; border-radius: 14px; display: flex; gap: 8px; align-items: center; margin-top: 14px; box-shadow: var(--sombra-alta); flex-wrap: wrap; z-index: 5; }
+  .barra-lote .boton { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
+  .barra-lote .boton:hover { background: rgba(255,255,255,.1); }
+  .barra-lote .boton.primario { background: var(--azul); border-color: var(--azul); }
+
+  .soltar { border: 2px dashed var(--azul-borde); background: #fbfdfe; border-radius: var(--radio); padding: 38px 20px; text-align: center; color: var(--suave); cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+  .soltar:hover, .soltar.encima { background: var(--azul-claro); border-color: var(--azul); color: var(--azul-osc); }
+  .soltar .ic { width: 34px; height: 34px; color: var(--azul); display: block; margin: 0 auto 8px; }
+  .soltar b { display: block; font-size: 16.5px; color: var(--texto); margin-bottom: 2px; }
+  .resultado { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #edf1f4; }
+  .resultado .ic { margin-top: 1px; }
+  .resultado.ok .ic { color: var(--ok); } .resultado.ko .ic { color: var(--mal); }
+
+  /* Actividades */
+  .acts { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .act { background: #fff; border: 1px solid var(--borde); border-radius: 16px; box-shadow: var(--sombra); display: flex; flex-direction: column; overflow: hidden; }
+  .act-cab { padding: 18px 18px 8px; display: flex; gap: 10px; align-items: flex-start; }
+  .act-cab h3 { margin: 0; font-size: 17px; line-height: 1.3; }
+  .act-cab .meta { color: var(--suave); font-size: 13px; margin-top: 4px; }
+  .act-num { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 18px; }
+  .act-num div { background: var(--fondo); border-radius: 10px; padding: 8px 6px; text-align: center; }
+  .act-num b { display: block; font-family: var(--titulos); font-size: 19px; font-weight: 600; line-height: 1.1; }
+  .act-num span { font-size: 11.5px; color: var(--suave); font-weight: 700; }
+  .act-ctrl { padding: 6px 18px 4px; display: flex; flex-wrap: wrap; gap: 0 18px; }
+  .act-ctrl .interruptor { font-size: 13.5px; }
+  .act-marcas { padding: 0 18px 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .act-pie { margin-top: auto; border-top: 1px solid var(--borde); padding: 10px 12px; display: flex; gap: 4px; flex-wrap: wrap; background: #fbfcfd; }
+
+  /* Formularios */
+  .fb { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 18px; align-items: start; }
+  .preg { border: 1px solid var(--borde); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .preg-cab { display: flex; gap: 6px; align-items: center; }
+  .preg-cab select { width: auto; min-height: 36px; padding: 5px 8px; font-size: 13.5px; }
+  .preg-cab .n { font-family: var(--titulos); font-weight: 600; color: var(--suave); width: 22px; }
+  .preg-cab .der { margin-left: auto; display: flex; gap: 2px; }
+  .preg textarea { min-height: 64px; }
+  .colores { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .muestra { width: 34px; height: 34px; border-radius: 10px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--borde-fuerte); cursor: pointer; padding: 0; }
+  .muestra.activo { box-shadow: 0 0 0 2px var(--texto); }
+  input[type=color] { width: 42px; height: 34px; padding: 2px; border: 1px solid var(--borde-fuerte); border-radius: 9px; background: #fff; min-height: 0; }
+  .movil-marco { position: sticky; top: 20px; border-radius: 28px; border: 1px solid var(--borde-fuerte); background: #fff; box-shadow: var(--sombra-alta); overflow: hidden; max-width: 430px; margin: 0 auto; }
+  .movil-marco .pantalla { max-height: calc(100vh - 140px); overflow-y: auto; background: var(--fondo); }
+  .pv-cab { padding: 26px 22px 22px; color: #fff; }
+  .pv-cab small { font-weight: 700; opacity: .85; letter-spacing: .04em; text-transform: uppercase; font-size: 11.5px; }
+  .pv-cab h2 { color: #fff; margin: 6px 0 6px; font-size: 23px; line-height: 1.2; }
+  .pv-cab p { margin: 0; opacity: .95; font-size: 14px; }
+  .pv-cuerpo { background: #fff; margin: -10px 12px 14px; border-radius: 16px; padding: 18px 16px; box-shadow: var(--sombra); position: relative; }
+  .pv-fijo { border: 1px dashed var(--borde-fuerte); border-radius: 12px; padding: 10px 12px; margin-bottom: 18px; color: var(--suave); font-size: 13px; }
+
+  /* Gráficos e informe */
+  .barras .fila-b { display: grid; grid-template-columns: minmax(60px, 160px) 1fr 44px; gap: 10px; align-items: center; font-size: 13.5px; margin: 7px 0; }
+  .barras .pista-b { height: 12px; background: #edf1f4; border-radius: 6px; overflow: hidden; }
+  .barras .pista-b i { display: block; height: 100%; background: var(--azul); border-radius: 6px; }
+  .barras .fila-b span:last-child { text-align: right; color: var(--suave); font-weight: 700; }
+  .grande { font-family: var(--titulos); font-size: 44px; font-weight: 600; line-height: 1; color: var(--azul-osc); }
+  .cita { background: #fff; border-left: 3px solid var(--naranja); padding: 10px 14px; margin: 8px 0; border-radius: 0 10px 10px 0; line-height: 1.55; background: #fffcf6; }
+  .cita.mejora { border-left-color: var(--azul); background: #f7fbfd; }
+  .cita small { display: block; color: var(--suave); margin-top: 4px; font-size: 12.5px; }
+  .informe h3 { font-size: 16px; margin: 18px 0 6px; color: var(--azul-osc); }
+  .informe h3:first-child { margin-top: 0; }
+  .informe p, .informe li { line-height: 1.65; }
+  .informe ul { padding-left: 20px; margin: 6px 0; }
+
+  /* Ventanas */
+  .modal-fondo { position: fixed; inset: 0; background: rgba(15,28,40,.5); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 16px; animation: aparecer .15s ease-out; }
+  @keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: #fff; border-radius: 18px; width: 100%; max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto; padding: 24px 26px; box-shadow: var(--sombra-alta); }
+  .modal.ancho { max-width: 760px; }
+  .modal h2 { margin: 0 0 6px; font-size: 20px; }
+  .modal .pie { display: flex; gap: 8px; justify-content: flex-end; margin-top: 22px; flex-wrap: wrap; }
+  .modal fieldset { border: 1px solid var(--borde); border-radius: 12px; padding: 4px 14px 12px; margin: 16px 0 0; }
+  .modal legend { font-family: var(--titulos); font-weight: 600; padding: 0 6px; }
+  .opcion-auto { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; }
+  .opcion-auto .interruptor { min-height: 24px; }
+  .opcion-auto div b { display: block; font-size: 14px; }
+  .opcion-auto div span { font-size: 13px; color: var(--suave); }
+  .cargando-pn { position: fixed; inset: 0; background: rgba(244,247,250,.82); display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 85; font-weight: 700; color: var(--azul-osc); }
+  .qr-caja { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .qr-caja canvas { border: 1px solid var(--borde); border-radius: 10px; background: #fff; }
+  .enlace-copia { display: flex; gap: 6px; align-items: center; }
+  .enlace-copia input { font-size: 13px; color: var(--suave); min-height: 38px; }
+  .lista-enlaces > div { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #edf1f4; flex-wrap: wrap; }
+  .lista-enlaces > div:last-child { border-bottom: 0; }
+  .lista-enlaces b { flex: 1; min-width: 180px; }
+  .botones-enlace { display: inline-flex; gap: 6px; flex: none; }
+  .mapa { display: grid; grid-template-columns: minmax(150px, 220px) 1fr minmax(100px, 200px); gap: 8px 12px; align-items: center; }
+  .mapa .ej { font-size: 13px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  @media (max-width: 1100px) { .fb { grid-template-columns: 1fr; } .movil-marco { position: static; } }
+  @media (max-width: 900px) {
     .pn-app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .pn-lateral { border-right: 0; border-bottom: 1px solid var(--borde); }
-    .pn-nav { display: flex; overflow-x: auto; padding: 6px; }
-    .pn-nav a { white-space: nowrap; }
-    .pn-nav .sep, .pn-usuario, .pn-lateral .logo div { display: none; }
-    .pn-vista { padding: 18px 16px 50px; }
+    .pn-movil { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #fff; border-bottom: 1px solid var(--borde); }
+    .pn-movil img { height: 36px; }
+    .pn-lateral { position: fixed; inset: 0 auto 0 0; width: 284px; transform: translateX(-102%); transition: transform .2s ease; box-shadow: var(--sombra-alta); }
+    .pn-app.menu-abierto .pn-lateral { transform: none; }
+    .pn-velo { position: fixed; inset: 0; background: rgba(15,28,40,.4); z-index: 25; }
+    .pn-vista { padding: 20px 16px 70px; }
+    .r2, .r3, .fila2, .fila3 { grid-template-columns: 1fr; }
+    .filtros select, .filtros input { min-width: 0; width: 100%; }
+    .acts { grid-template-columns: 1fr; }
+    .tiles { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .tile { padding: 14px; }
+    .tile .n { font-size: 26px; }
+    .pn-titulo h1 { font-size: 24px; }
+    .mapa { grid-template-columns: 1fr; }
+    .mapa .ej { display: none; }
   }
 </style>
 </head>
 <body>
+<?!= incluir_('Iconos') ?>
 
 <!-- ─────────── ACCESO Y CONFIGURACIÓN ─────────── -->
 <div class="pn-acceso oculto" id="pnAcceso">
-  <div class="pn-franja"></div>
-  <div class="pn-tarjeta">
-    <img id="pnLogoAcceso" alt="Pastoral · Centro Universitario Sagrada Familia">
-    <h1>Certificados de Pastoral</h1>
-    <p class="sub">Servicio de Pastoral y Compromiso Solidario</p>
+  <main class="pn-tarjeta">
+    <div class="franja-logo" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="cuerpo">
+      <img id="pnLogoAcceso" alt="Pastoral · Centro Universitario Sagrada Familia">
+      <h1>Certificados de Pastoral</h1>
+      <p class="sub">Servicio de Pastoral y Compromiso Solidario</p>
 
-    <div id="pnPaso1">
-      <label for="pnEmail">Tu correo</label>
-      <input type="email" id="pnEmail" autocomplete="email" placeholder="nombre@fundacionsafa.es">
-      <button class="boton primario" id="pnPedir">Enviarme un código</button>
-      <p class="ayuda" style="margin-top:12px">Te enviaremos un código de 6 cifras. Solo funciona con los correos del equipo de Pastoral.</p>
-    </div>
-    <div id="pnPaso2" class="oculto">
-      <p class="ayuda">Si tu correo está en el equipo, te hemos enviado un código. Revisa también el correo no deseado.</p>
-      <label for="pnCodigo">Código</label>
-      <input type="text" id="pnCodigo" class="pn-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
-      <button class="boton primario" id="pnEntrar">Entrar</button>
-      <button class="boton" id="pnOtro" style="margin-top:8px">Usar otro correo</button>
-    </div>
-
-    <div id="pnConfig" class="oculto">
-      <div class="nota"><b>Primera configuración.</b> La aplicación todavía no está preparada. Solo la cuenta propietaria (<span id="pnProp"></span>) puede configurarla.</div>
-      <div id="pnConfig1"><button class="boton primario" id="pnConfigPedir">Enviar un código a la cuenta propietaria</button></div>
-      <div id="pnConfig2" class="oculto">
-        <label for="pnConfigNombre">Tu nombre (para el equipo)</label>
-        <input type="text" id="pnConfigNombre" placeholder="Andrés García Pozas">
-        <label for="pnConfigCodigo">Código recibido</label>
-        <input type="text" id="pnConfigCodigo" class="pn-codigo" inputmode="numeric" maxlength="6">
-        <button class="boton primario" id="pnConfigar">Configurar la aplicación</button>
-        <p class="ayuda" style="margin-top:12px">Se crearán en tu Drive, en la carpeta «Pastoral · Certificados (app)», los datos y la bóveda privada. Nadie más tiene acceso.</p>
+      <div id="pnPaso1">
+        <label class="etq" for="pnEmail">Tu correo del centro</label>
+        <input type="email" id="pnEmail" autocomplete="email" placeholder="nombre@fundacionsafa.es">
+        <button class="boton primario" id="pnPedir">Enviarme un código</button>
+        <p class="ayuda" style="margin-top:14px">Te enviaremos un código de 6 cifras. Solo funciona con los correos del equipo de Pastoral.</p>
       </div>
+      <div id="pnPaso2" class="oculto">
+        <p class="ayuda">Si tu correo está en el equipo, te hemos enviado un código. Revisa también el correo no deseado.</p>
+        <label class="etq" for="pnCodigo">Código</label>
+        <input type="text" id="pnCodigo" class="pn-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <button class="boton primario" id="pnEntrar">Entrar</button>
+        <button class="boton fantasma" id="pnOtro" style="margin-top:8px">Usar otro correo</button>
+      </div>
+
+      <div id="pnConfig" class="oculto">
+        <div class="nota"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><div><b>Primera configuración.</b> La aplicación todavía no está preparada. Solo la cuenta propietaria (<span id="pnProp"></span>) puede configurarla.</div></div>
+        <div id="pnConfig1"><button class="boton primario" id="pnConfigPedir">Enviar un código a la cuenta propietaria</button></div>
+        <div id="pnConfig2" class="oculto">
+          <label class="etq" for="pnConfigNombre">Tu nombre (para el equipo)</label>
+          <input type="text" id="pnConfigNombre" placeholder="Andrés García Pozas">
+          <label class="etq" for="pnConfigCodigo">Código recibido</label>
+          <input type="text" id="pnConfigCodigo" class="pn-codigo" inputmode="numeric" maxlength="6">
+          <button class="boton primario" id="pnConfigar">Configurar la aplicación</button>
+          <p class="ayuda" style="margin-top:12px">Se crearán en tu Drive, en la carpeta «Pastoral · Certificados (app)», los datos y la bóveda privada. Nadie más tiene acceso.</p>
+        </div>
+      </div>
+      <div id="pnErrorAcceso" class="error oculto" role="alert" style="margin-top:14px"></div>
     </div>
-    <div id="pnErrorAcceso" class="pn-error oculto"></div>
-  </div>
-  <div class="pn-franja abajo"></div>
+  </main>
+  <p class="pn-pie-acceso">Centro Universitario «Sagrada Familia» · Úbeda · <i>Libres para servir</i></p>
 </div>
 
 <!-- ─────────── APLICACIÓN ─────────── -->
 <div class="pn-app oculto" id="pnApp">
-  <aside class="pn-lateral">
-    <div class="franja"></div>
-    <div class="logo"><img id="pnLogoLateral" alt="Pastoral"><div>Certificados · Pastoral y Compromiso Solidario</div></div>
-    <nav class="pn-nav" id="pnNav"></nav>
-    <div class="pn-usuario"><b id="pnUNombre"></b><span id="pnURol"></span> · <a href="#" id="pnSalir">Salir</a></div>
+  <div class="pn-movil">
+    <button class="boton icono fantasma" id="pnMenuBtn" aria-label="Abrir el menú" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button>
+    <img id="pnLogoMovil" alt="Pastoral">
+  </div>
+  <aside class="pn-lateral" id="pnLateral">
+    <div class="franja-logo" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="pn-marca"><img id="pnLogoLateral" alt="Pastoral · Centro Universitario Sagrada Familia"><span>Certificados · Pastoral y Compromiso Solidario</span></div>
+    <nav class="pn-nav" id="pnNav" aria-label="Secciones"></nav>
+    <div class="pn-usuario"><div class="pn-avatar" id="pnAvatar" aria-hidden="true"></div><div><b id="pnUNombre"></b><span id="pnURol"></span></div>
+      <button class="boton peq icono fantasma" id="pnSalir" aria-label="Salir" title="Salir"><svg class="ic" aria-hidden="true"><use href="#i-salir"/></svg></button></div>
   </aside>
   <main class="pn-contenido" id="pnContenido">
     <section class="vista" id="vInicio"></section>
     <section class="vista oculto" id="vActividades"></section>
     <section class="vista oculto" id="vInscripciones"></section>
+    <section class="vista oculto" id="vFormularios"></section>
+    <section class="vista oculto" id="vImportar"></section>
+    <section class="vista oculto" id="vEnvios"></section>
     <section class="vista oculto" id="vFirmar"></section>
-    <section class="vista oculto" id="vCertificados"></section>
     <section class="vista oculto" id="vValoraciones"></section>
     <section class="vista oculto" id="vEquipo"></section>
     <section class="vista oculto" id="vAjustes"></section>
@@ -207,18 +291,26 @@
     <!-- La vista del editor (vistaEditor) se mueve aquí al arrancar -->
   </main>
 </div>
-<div class="cargando-pn oculto" id="pnCargando">Cargando…</div>
+<div class="cargando-pn oculto" id="pnCargando" role="status" aria-live="polite"><div class="girando"></div><span id="pnCargandoTxt">Cargando…</span></div>
 <?!= incluir_('Editor') ?>
+<?!= incluir_('FormVista') ?>
 
 <script>
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const ESTADOS = { pendiente: 'Pendiente', validada: 'Validada', rechazada: 'Rechazada', generando: 'Generando', firma: 'En firma', enviado: 'Enviado', anulado: 'Anulado', revisar: 'Revisar' };
-  const P = { usuario: null, actividades: [], vista: 'inicio', actSel: '' };
+  const ic = window.ic;
+  const ESTADOS = {
+    pendiente: ['Por validar', 'naranja'], validada: ['Validada', 'azul'], generando: ['Generando', 'azul'], generado: ['Por enviar a firmar', 'indigo'],
+    firma: ['En firma', 'magenta'], firmado: ['Firmado', 'marron'], enviado: ['Enviado', 'verde'], revisar: ['Revisar', 'rojo'],
+    rechazada: ['Rechazada', 'gris'], anulado: ['Anulado', 'gris']
+  };
+  const ORIGEN = { web: 'Web', hoja: 'Hoja de Drive' };
+  const PALETA = [['Azul Pastoral', '#136EA1'], ['Rojo', '#C62A22'], ['Naranja', '#C26F00'], ['Verde', '#1F8A4E'], ['Magenta', '#C2006A'], ['Índigo', '#33228A'], ['Marrón', '#7E5128'], ['Grafito', '#3B4652']];
+  const P = { usuario: null, actividades: [], vista: 'inicio', actSel: '', resumen: {} };
 
-  // ─────────── sesión ───────────
+  // ─────────── servidor ───────────
   function guardarToken(t) { window.TOKEN = t; try { if (t) sessionStorage.setItem('pn_token', t); else sessionStorage.removeItem('pn_token'); } catch (e) { } }
   function tokenGuardado() { try { return sessionStorage.getItem('pn_token') || ''; } catch (e) { return ''; } }
   function llamar(fn) {
@@ -227,7 +319,7 @@
       google.script.run.withSuccessHandler(ok).withFailureHandler((e) => {
         const err = e && e.message ? e : new Error(String(e));
         if (/^SESION/.test(err.message)) window.sesionCaducada();
-        err.message = err.message.replace(/^(SESION|SIN_PERMISO): /, '');
+        err.message = err.message.replace(/^(Error: )?(SESION|SIN_PERMISO): /, '');
         ko(err);
       })[fn].apply(null, [window.TOKEN].concat(args));
     });
@@ -237,24 +329,52 @@
     return new Promise((ok, ko) => { google.script.run.withSuccessHandler(ok).withFailureHandler((e) => ko(e && e.message ? e : new Error(String(e))))[fn].apply(null, args); });
   }
   window.sesionCaducada = function () { guardarToken(''); mostrarAcceso(); errorAcceso('Tu sesión ha caducado. Vuelve a entrar.'); };
-  function aviso(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 3200); }
-  function cargando(si, t) { $('pnCargando').classList.toggle('oculto', !si); $('pnCargando').textContent = t || 'Cargando…'; }
+  function aviso(t) { document.querySelectorAll('.toast').forEach((x) => x.remove()); const d = document.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status'); d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 4200); }
+  function cargando(si, t) { $('pnCargando').classList.toggle('oculto', !si); $('pnCargandoTxt').textContent = t || 'Cargando…'; }
   function errorAcceso(t) { $('pnErrorAcceso').textContent = t; $('pnErrorAcceso').classList.toggle('oculto', !t); }
-
-  /** Descarga en el navegador; si el navegador la bloquea, la persona puede pedirlo por correo. */
   window.descargarArchivo = function (blob, nombre) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = nombre; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
   };
+  window.avisoPanel = aviso;
   function b64aBlob(b64, tipo) { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type: tipo }); }
   function aBase64(buf) { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+  const num = (n) => String(n).replace('.', ',');
+
+  // ─────────── ventanas ───────────
+  function modal(html, alAbrir, ancho, alCerrar) {
+    const f = document.createElement('div'); f.className = 'modal-fondo';
+    f.innerHTML = '<div class="modal' + (ancho ? ' ancho' : '') + '" role="dialog" aria-modal="true">' + html + '</div>';
+    const antes = document.activeElement;
+    document.body.appendChild(f);
+    let cerrado = false;
+    const cerrar = () => { if (cerrado) return; cerrado = true; f.remove(); document.removeEventListener('keydown', tecla); if (antes && antes.focus) antes.focus(); if (alCerrar) alCerrar(); };
+    const tecla = (e) => { if (e.key === 'Escape') cerrar(); };
+    document.addEventListener('keydown', tecla);
+    f.onclick = (e) => { if (e.target === f) cerrar(); };
+    f.querySelectorAll('[data-cerrar]').forEach((b) => { b.onclick = cerrar; });
+    const primero = f.querySelector('input:not([type=hidden]):not([readonly]), select, textarea, .pie .primario');
+    if (primero) setTimeout(() => primero.focus(), 30);
+    if (alAbrir) alAbrir(f, cerrar);
+    return cerrar;
+  }
+  /** Confirmación accesible (sin window.confirm). */
+  function preguntar(titulo, texto, si, peligro) {
+    return new Promise((ok) => {
+      let respuesta = false;
+      modal('<h2>' + esc(titulo) + '</h2><p class="ayuda" style="font-size:14.5px">' + texto + '</p>' +
+        '<div class="pie"><button class="boton" data-cerrar>Cancelar</button><button class="boton ' + (peligro ? 'peligro' : 'primario') + '" data-si>' + esc(si || 'Aceptar') + '</button></div>', (f, c) => {
+        f.querySelector('[data-si]').onclick = () => { respuesta = true; c(); };
+        setTimeout(() => f.querySelector('[data-si]').focus(), 40);
+      }, false, () => ok(respuesta));
+    });
+  }
 
   // ─────────── acceso ───────────
   function mostrarAcceso() { $('pnApp').classList.add('oculto'); $('pnAcceso').classList.remove('oculto'); }
   async function arrancar() {
-    $('pnLogoAcceso').src = LOGOS.pastoral; $('pnLogoLateral').src = LOGOS.pastoral;
-    // La vista del editor vive dentro del contenido del panel
+    ['pnLogoAcceso', 'pnLogoLateral', 'pnLogoMovil'].forEach((id) => { $(id).src = LOGOS.pastoral; });
     $('pnContenido').appendChild($('vistaEditor'));
     enlazarAcceso();
     cargando(true);
@@ -294,171 +414,248 @@
       try { const r = await publico('api_configurar', $('pnConfigCodigo').value.trim(), $('pnConfigNombre').value.trim()); guardarToken(r.token); entrarApp(r.usuario); aviso('¡Lista! Empieza por «Ajustes» para revisar los firmantes.'); }
       catch (e) { errorAcceso(e.message); } finally { $('pnConfigar').disabled = false; cargando(false); }
     };
-    $('pnSalir').onclick = async (e) => { e.preventDefault(); try { await llamar('api_salir'); } catch (x) { } guardarToken(''); location.reload(); };
+    $('pnSalir').onclick = async () => { try { await llamar('api_salir'); } catch (x) { } guardarToken(''); location.reload(); };
+    $('pnMenuBtn').onclick = () => menuMovil(!$('pnApp').classList.contains('menu-abierto'));
+  }
+  function menuMovil(abrir) {
+    $('pnApp').classList.toggle('menu-abierto', abrir);
+    $('pnMenuBtn').setAttribute('aria-expanded', abrir ? 'true' : 'false');
+    document.querySelectorAll('.pn-velo').forEach((v) => v.remove());
+    if (abrir) { const v = document.createElement('div'); v.className = 'pn-velo'; v.onclick = () => menuMovil(false); $('pnApp').appendChild(v); }
   }
 
   // ─────────── navegación ───────────
   const MENU = [
-    { id: 'inicio', ic: '🏠', t: 'Inicio', nivel: 1 },
-    { id: 'actividades', ic: '📅', t: 'Actividades', nivel: 2 },
-    { id: 'inscripciones', ic: '👥', t: 'Inscripciones', nivel: 2, num: 'porValidar' },
-    { id: 'editor', ic: '🎨', t: 'Diseñar y generar', nivel: 2, num: 'porGenerar' },
-    { id: 'firmar', ic: '✍️', t: 'Firmar', nivel: 1, num: 'misFirmas', firmante: true },
-    { id: 'certificados', ic: '📄', t: 'Certificados', nivel: 2 },
-    { id: 'valoraciones', ic: '⭐', t: 'Valoraciones', nivel: 2 },
-    { sep: true, nivel: 2 },
-    { id: 'equipo', ic: '🧑‍🤝‍🧑', t: 'Equipo', nivel: 3 },
-    { id: 'ajustes', ic: '⚙️', t: 'Ajustes', nivel: 2 },
-    { id: 'registro', ic: '🗒️', t: 'Registro', nivel: 3 }
+    { id: 'inicio', ic: 'inicio', t: 'Inicio', nivel: 1 },
+    { g: 'Actividades', nivel: 2 },
+    { id: 'actividades', ic: 'calendario', t: 'Actividades', nivel: 2 },
+    { id: 'inscripciones', ic: 'personas', t: 'Inscripciones', nivel: 2, num: 'porValidar' },
+    { id: 'formularios', ic: 'formulario', t: 'Formularios', nivel: 2 },
+    { id: 'importar', ic: 'hoja', t: 'Importar de Drive', nivel: 2 },
+    { g: 'Certificados', nivel: 1 },
+    { id: 'editor', ic: 'paleta', t: 'Diseñar y generar', nivel: 2, num: 'porGenerar' },
+    { id: 'envios', ic: 'enviar', t: 'Envíos', nivel: 2, num: 'porEnviar' },
+    { id: 'firmar', ic: 'firma', t: 'Firmar', nivel: 1, num: 'misFirmas', firmante: true },
+    { g: 'Análisis', nivel: 2 },
+    { id: 'valoraciones', ic: 'grafico', t: 'Valoraciones e informes', nivel: 2 },
+    { g: 'Administración', nivel: 2 },
+    { id: 'equipo', ic: 'escudo', t: 'Equipo', nivel: 3 },
+    { id: 'ajustes', ic: 'ajustes', t: 'Ajustes', nivel: 2 },
+    { id: 'registro', ic: 'lista', t: 'Registro', nivel: 3 }
   ];
   function entrarApp(u) {
     P.usuario = u;
     $('pnAcceso').classList.add('oculto'); $('pnApp').classList.remove('oculto');
     $('pnUNombre').textContent = u.nombre; $('pnURol').textContent = u.rolNombre;
+    $('pnAvatar').textContent = (u.nombre || '?').split(/\s+/).slice(0, 2).map((p) => p.charAt(0)).join('').toUpperCase();
     pintarMenu({});
     const h = (location.hash || '').replace('#', '');
     ir(MENU.some((m) => m.id === h && visible(m)) ? h : (u.rol === 'firmante' ? 'firmar' : 'inicio'));
   }
-  function visible(m) { return P.usuario && (P.usuario.nivel >= m.nivel || (m.firmante && P.usuario.firmas.length)); }
-  function pintarMenu(cuentas) {
-    $('pnNav').innerHTML = MENU.filter(visible).map((m) => m.sep ? '<div class="sep"></div>' :
-      '<a data-v="' + m.id + '" class="' + (P.vista === m.id ? 'activo' : '') + '"><span class="ic">' + m.ic + '</span>' + m.t +
-      (m.num && cuentas[m.num] ? '<span class="num">' + cuentas[m.num] + '</span>' : '') + '</a>').join('');
-    $('pnNav').querySelectorAll('a[data-v]').forEach((a) => { a.onclick = () => ir(a.dataset.v); });
+  function visible(m) {
+    if (!P.usuario) return false;
+    if (m.g) return P.usuario.nivel >= m.nivel || (m.nivel === 1 && P.usuario.firmas.length);
+    return P.usuario.nivel >= m.nivel || (m.firmante && P.usuario.firmas.length);
   }
-  const VISTAS = { inicio: 'vInicio', actividades: 'vActividades', inscripciones: 'vInscripciones', editor: 'vistaEditor', firmar: 'vFirmar',
-    certificados: 'vCertificados', valoraciones: 'vValoraciones', equipo: 'vEquipo', ajustes: 'vAjustes', registro: 'vRegistro' };
-  async function ir(v, opciones) {
+  function pintarMenu(c) {
+    P.resumen = Object.assign(P.resumen, c);
+    const cuentas = Object.assign({}, P.resumen, { porEnviar: (P.resumen.generados || 0) + (P.resumen.firmados || 0) });
+    $('pnNav').innerHTML = MENU.filter(visible).map((m) => m.g ? '<div class="pn-grupo">' + m.g + '</div>' :
+      '<a href="#' + m.id + '" data-v="' + m.id + '" class="' + (P.vista === m.id ? 'activo' : '') + '"' + (P.vista === m.id ? ' aria-current="page"' : '') + '>' + ic(m.ic) + '<span>' + m.t + '</span>' +
+      (m.num && cuentas[m.num] ? '<span class="num" aria-label="' + cuentas[m.num] + ' pendientes">' + cuentas[m.num] + '</span>' : '') + '</a>').join('');
+    $('pnNav').querySelectorAll('a[data-v]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); ir(a.dataset.v); menuMovil(false); }; });
+  }
+  const VISTAS = { inicio: 'vInicio', actividades: 'vActividades', inscripciones: 'vInscripciones', formularios: 'vFormularios', importar: 'vImportar',
+    editor: 'vistaEditor', envios: 'vEnvios', firmar: 'vFirmar', valoraciones: 'vValoraciones', equipo: 'vEquipo', ajustes: 'vAjustes', registro: 'vRegistro' };
+  async function ir(v, op) {
     P.vista = v;
     Object.values(VISTAS).forEach((id) => $(id).classList.add('oculto'));
     $(VISTAS[v]).classList.remove('oculto');
-    $('pnNav').querySelectorAll('a[data-v]').forEach((a) => a.classList.toggle('activo', a.dataset.v === v));
+    $('pnNav').querySelectorAll('a[data-v]').forEach((a) => { a.classList.toggle('activo', a.dataset.v === v); if (a.dataset.v === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     try { history.replaceState(null, '', '#' + v); } catch (e) { }
+    $('pnContenido').scrollTop = 0;
     try {
       if (v === 'inicio') await vInicio();
       if (v === 'actividades') await vActividades();
-      if (v === 'inscripciones') await vInscripciones(opciones);
-      if (v === 'editor') await window.abrirEditor(opciones && opciones.act, opciones && opciones.tab);
+      if (v === 'inscripciones') await vInscripciones(op);
+      if (v === 'formularios') await vFormularios(op);
+      if (v === 'importar') await vImportar(op);
+      if (v === 'editor') await window.abrirEditor(op && op.act, op && op.tab);
+      if (v === 'envios') await vEnvios(op);
       if (v === 'firmar') await vFirmar();
-      if (v === 'certificados') await vCertificados(opciones);
-      if (v === 'valoraciones') await vValoraciones();
+      if (v === 'valoraciones') await vValoraciones(op);
       if (v === 'equipo') await vEquipo();
       if (v === 'ajustes') await vAjustes();
       if (v === 'registro') await vRegistro();
     } catch (e) { aviso('Error: ' + e.message); }
-    if (v !== 'inicio') llamar('api_resumen').then(pintarMenu).catch(() => { });   // contadores del menú al día
+    if (v !== 'inicio') llamar('api_resumen').then(pintarMenu).catch(() => { });
   }
+  window.irPanel = ir;
   async function actividades() { P.actividades = await llamar('api_actividades'); return P.actividades; }
   function cab(titulo, acciones, lead) {
-    return '<div class="pn-titulo"><h2>' + titulo + '</h2><div class="acciones">' + (acciones || '') + '</div></div>' + (lead ? '<p class="pn-lead">' + lead + '</p>' : '');
+    return '<div class="pn-titulo"><h1>' + titulo + '</h1><div class="acciones">' + (acciones || '') + '</div></div>' + (lead ? '<p class="pn-lead">' + lead + '</p>' : '<div style="height:16px"></div>');
   }
-  function chip(estado, extra) { return '<span class="chipe e-' + estado + '">' + (ESTADOS[estado] || estado) + (extra ? ' · ' + esc(extra) : '') + '</span>'; }
+  function chip(estado, extra) { const e = ESTADOS[estado] || [estado, 'gris']; return '<span class="chip c-' + e[1] + '">' + e[0] + (extra ? ' · ' + esc(extra) : '') + '</span>'; }
+  function vacio(icono, titulo, texto) { return '<div class="vacio">' + ic(icono) + '<b>' + titulo + '</b>' + (texto || '') + '</div>'; }
+  function selectorAct(id, acts, sel, extra) {
+    return '<select id="' + id + '" aria-label="Actividad">' + (extra || '') + acts.map((a) => '<option value="' + a.id + '"' + (a.id === sel ? ' selected' : '') + '>' + esc(a.nombre) + '</option>').join('') + '</select>';
+  }
+  function interruptor(id, marcado, texto, attrs) {
+    return '<label class="interruptor"><input type="checkbox" id="' + (id || '') + '"' + (marcado ? ' checked' : '') + (attrs || '') + '><span class="pista" aria-hidden="true"></span><span>' + texto + '</span></label>';
+  }
+  function dibujarQr(canvas, texto) {
+    if (typeof qrcode === 'undefined') return;
+    const q = qrcode(0, 'M'); q.addData(texto); q.make();
+    const n = q.getModuleCount(), x = canvas.getContext('2d'), c = canvas.width / (n + 4);
+    x.fillStyle = '#fff'; x.fillRect(0, 0, canvas.width, canvas.height); x.fillStyle = '#1B2733';
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect((k + 2) * c, (r + 2) * c, c + .3, c + .3);
+  }
+  function modalQr(titulo, url) {
+    modal('<h2>' + esc(titulo) + '</h2><p class="ayuda">Proyéctalo al final de la actividad o pégalo en Classroom.</p>' +
+      '<div style="text-align:center;margin:14px 0"><canvas id="qrGrande" width="320" height="320" style="max-width:100%;border:1px solid var(--borde);border-radius:14px"></canvas></div>' +
+      '<div class="enlace-copia"><input type="text" readonly value="' + esc(url) + '" aria-label="Enlace"><button class="boton peq" data-copiar>' + ic('copiar', 'peq') + 'Copiar</button></div>' +
+      '<div class="pie"><button class="boton" id="qrPng">' + ic('descargar') + 'Descargar imagen</button><button class="boton primario" data-cerrar>Cerrar</button></div>', (f) => {
+      dibujarQr(f.querySelector('#qrGrande'), url);
+      f.querySelector('[data-copiar]').onclick = () => copiar(url);
+      f.querySelector('#qrPng').onclick = () => f.querySelector('#qrGrande').toBlob((b) => window.descargarArchivo(b, 'QR ' + titulo.replace(/[^\wáéíóúñü ]+/gi, ' ').trim() + '.png'));
+    });
+  }
+  async function copiar(t) {
+    try { await navigator.clipboard.writeText(t); aviso('Copiado.'); }
+    catch (e) { const a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.left = '-9999px'; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); aviso('Copiado.'); } catch (x) { aviso('No se pudo copiar: selecciónalo a mano.'); } a.remove(); }
+  }
+  function enlaceFila(titulo, url, etiqueta) {
+    return '<div><b>' + esc(titulo) + (etiqueta ? ' <span class="chip c-azul" style="margin-left:6px">' + etiqueta + '</span>' : '') + '</b><span class="botones-enlace">' +
+      '<button class="boton peq" data-copiar="' + esc(url) + '">' + ic('copiar', 'peq') + 'Copiar</button>' +
+      '<button class="boton peq" data-qr="' + esc(url) + '" data-qrt="' + esc(titulo) + '">' + ic('qr', 'peq') + 'QR</button>' +
+      '<a class="boton peq icono fantasma" href="' + esc(url) + '" target="_blank" rel="noopener" aria-label="Abrir en otra pestaña" title="Abrir">' + ic('externo', 'peq') + '</a></span></div>';
+  }
+  function enlazarEnlaces(raiz) {
+    raiz.querySelectorAll('[data-copiar]').forEach((b) => { if (b.dataset.copiar) b.onclick = () => copiar(b.dataset.copiar); });
+    raiz.querySelectorAll('[data-qr]').forEach((b) => { b.onclick = () => modalQr(b.dataset.qrt, b.dataset.qr); });
+  }
 
   // ─────────── INICIO ───────────
   async function vInicio() {
     const r = await llamar('api_resumen');
     pintarMenu(r);
     const u = P.usuario;
-    const saludo = (new Date().getHours() < 14 ? 'Buenos días' : new Date().getHours() < 21 ? 'Buenas tardes' : 'Buenas noches') + ', ' + esc(u.nombre.split(' ')[0]);
+    const h = new Date().getHours();
+    const saludo = (h < 14 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches') + ', ' + esc(u.nombre.split(' ')[0]);
+    const tile = (n, t, icono, color, destino, op) => '<button class="tile t-' + color + (n ? '' : ' cero') + '" data-ir="' + destino + '"' + (op ? ' data-op="' + op + '"' : '') + '>' +
+      '<span class="icono-tile">' + ic(icono) + '</span><span class="n">' + n + '</span><span class="t">' + t + '</span></button>';
+    const t = [];
+    if (u.nivel >= 2) {
+      t.push(tile(r.porValidar, 'Inscripciones por validar', 'personas', 'naranja', 'inscripciones'));
+      t.push(tile(r.porGenerar, 'Certificados por generar', 'paleta', 'azul', 'editor'));
+      t.push(tile(r.generados, 'Por enviar a firmar', 'enviar', 'indigo', 'envios', 'generado'));
+    }
+    if (u.firmas.length) t.push(tile(r.misFirmas, 'Esperan tu firma', 'firma', 'magenta', 'firmar'));
+    if (u.nivel >= 2) {
+      t.push(tile(r.enFirma, 'En proceso de firma', 'reloj', 'magenta', 'envios', 'firma'));
+      t.push(tile(r.firmados, 'Firmados · por enviar al alumnado', 'correo', 'marron', 'envios', 'firmado'));
+      t.push(tile(r.enviadosCurso, 'Enviados en ' + r.curso + ' · ' + r.descargadosCurso + ' descargados', 'certificado', 'verde', 'envios', 'enviado'));
+      if (r.revisar) t.push(tile(r.revisar, 'Para revisar', 'aviso', 'rojo', 'envios', 'revisar'));
+    }
     const avisos = [];
     if (u.nivel >= 2 && r.firmantes === 0) avisos.push('No hay firmantes configurados. Ve a «Ajustes».');
-    const t = [
-      u.nivel >= 2 ? '<div class="dato" data-ir="inscripciones"><div class="n">' + r.porValidar + '</div><div class="t">Inscripciones por validar</div></div>' : '',
-      u.nivel >= 2 ? '<div class="dato" data-ir="editor"><div class="n">' + r.porGenerar + '</div><div class="t">Certificados por generar</div></div>' : '',
-      u.firmas.length ? '<div class="dato" data-ir="firmar"><div class="n">' + r.misFirmas + '</div><div class="t">Esperan tu firma</div></div>' : '',
-      u.nivel >= 2 ? '<div class="dato" data-ir="certificados"><div class="n">' + r.enFirma + '</div><div class="t">En proceso de firma</div></div>' : '',
-      u.nivel >= 2 ? '<div class="dato" data-ir="certificados"><div class="n">' + r.enviadosCurso + '</div><div class="t">Enviados en ' + r.curso + '</div></div>' : '',
-      u.nivel >= 2 && r.revisar ? '<div class="dato alerta" data-ir="certificados"><div class="n">' + r.revisar + '</div><div class="t">Para revisar</div></div>' : ''
-    ].join('');
-    $('vInicio').innerHTML = '<div class="pn-vista">' + cab(saludo) +
-      avisos.map((a) => '<div class="aviso">' + a + '</div>').join('') +
-      '<div class="tarjetas">' + t + '</div>' +
-      (u.nivel >= 2 ? '<div class="caja"><h3>Enlace de inscripción para el alumnado</h3>' +
-        '<p class="ayuda" style="margin:0 0 10px">Compártelo en Classroom o proyecta el QR al terminar la actividad. Ahora mismo está abierto para: ' +
-        (r.abiertas.length ? '<b>' + r.abiertas.map(esc).join('</b>, <b>') + '</b>' : '<i>ninguna actividad (ábrelas en «Actividades»)</i>') + '.</p>' +
-        '<div class="qr"><canvas id="qrInscripcion" width="132" height="132"></canvas><div style="flex:1">' +
-        '<div class="enlace-copia"><input type="text" readonly value="' + esc(r.urlInscripcion) + '" id="urlIns"><button class="boton" id="copiarIns">Copiar</button></div>' +
-        '<p class="ayuda">Verificación pública de certificados: <a href="' + esc(r.urlVerificacion) + '" target="_blank">' + esc(r.urlVerificacion) + '</a></p></div></div></div>' : '') +
+    const enlaces = r.abiertas.map((a) => enlaceFila(a.nombre, r.urlApp + '?p=f&a=' + a.id, 'Inscripción')).join('') +
+      r.evaluando.map((a) => enlaceFila(a.nombre, r.urlApp + '?p=e&a=' + a.id, 'Evaluación')).join('');
+    $('vInicio').innerHTML = '<div class="pn-vista">' + cab(saludo, '', u.nivel >= 2 ? 'Esto es lo que tienes en marcha. Pulsa cualquier tarjeta para ir directamente.' : 'Aquí tienes los certificados que esperan tu firma.') +
+      avisos.map((a) => '<div class="aviso">' + ic('aviso') + '<div>' + a + '</div></div>').join('') +
+      '<div class="tiles">' + t.join('') + '</div>' +
+      (u.nivel >= 2 ? '<div class="rejilla r2"><div class="caja"><h2>' + ic('enlace') + 'Enlaces para el alumnado</h2>' +
+        (enlaces ? '<div class="lista-enlaces">' + enlaces + '</div>' : '<p class="ayuda" style="margin:0">Ahora mismo no hay ningún formulario abierto. Ábrelos desde «Actividades».</p>') +
+        '<p class="ayuda" style="margin:12px 0 0">Página general con todas las inscripciones abiertas: <a href="' + esc(r.urlInscripcion) + '" target="_blank" rel="noopener">abrir</a> · Verificación pública: <a href="' + esc(r.urlVerificacion) + '" target="_blank" rel="noopener">abrir</a></p></div>' +
+        '<div class="caja"><h2>' + ic('rayo') + 'Automatización</h2>' +
+        '<p style="margin:0 0 8px">' + ic('hoja', 'peq') + ' <b>' + r.enlazadas + '</b> actividad(es) con una hoja de Drive enlazada.</p>' +
+        '<p style="margin:0 0 8px">' + ic('ia', 'peq') + ' Inteligencia artificial: <b>' + (r.ia ? 'activada' : 'sin activar') + '</b>' + (!r.ia && u.rol === 'admin' ? ' · <a href="#ajustes" data-irajustes>actívala en Ajustes</a>' : '') + '</p>' +
+        '<p class="ayuda" style="margin:0">Cada hora la app trae las respuestas nuevas de las hojas enlazadas y hace lo que hayas activado en cada actividad: validar, generar, enviar a firmar y enviar al alumnado.</p></div></div>' : '') +
       '</div>';
-    $('vInicio').querySelectorAll('[data-ir]').forEach((d) => { d.onclick = () => ir(d.dataset.ir); });
-    if ($('copiarIns')) { $('copiarIns').onclick = () => copiar($('urlIns').value); dibujarQr($('qrInscripcion'), r.urlInscripcion); }
-  }
-  function dibujarQr(canvas, texto) {
-    if (typeof qrcode === 'undefined') return;
-    const q = qrcode(0, 'M'); q.addData(texto); q.make();
-    const n = q.getModuleCount(), x = canvas.getContext('2d'), c = canvas.width / (n + 4);
-    x.fillStyle = '#fff'; x.fillRect(0, 0, canvas.width, canvas.height); x.fillStyle = '#1f2a33';
-    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect((k + 2) * c, (r + 2) * c, c + .3, c + .3);
-  }
-  async function copiar(t) {
-    try { await navigator.clipboard.writeText(t); aviso('Copiado.'); }
-    catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); aviso('Copiado.'); } catch (x) { } a.remove(); }
+    $('vInicio').querySelectorAll('[data-ir]').forEach((d) => { d.onclick = () => ir(d.dataset.ir, d.dataset.op ? { estado: d.dataset.op } : null); });
+    $('vInicio').querySelectorAll('[data-irajustes]').forEach((d) => { d.onclick = (e) => { e.preventDefault(); ir('ajustes'); }; });
+    enlazarEnlaces($('vInicio'));
   }
 
   // ─────────── ACTIVIDADES ───────────
   async function vActividades() {
     const acts = await actividades();
-    const filas = acts.map((a) => '<tr>' +
-      '<td><b>' + esc(a.nombre) + '</b><div class="ayuda">' + esc(a.id) + ' · ' + esc(a.tipo || '—') + ' · ' + esc(a.fechas || 'sin fechas') +
-      (a.horas ? ' · ' + a.horas + ' h' : '') + (a.ects ? ' · ' + a.ects + ' ECTS' : '') + '</div></td>' +
-      '<td><label class="pn-switch" title="Inscripción abierta"><input type="checkbox" data-abrir="' + a.id + '"' + (a.abierta ? ' checked' : '') + '><span></span></label></td>' +
-      '<td>' + a.inscritos + (a.pendientes ? ' <span class="chipe e-pendiente">' + a.pendientes + ' por validar</span>' : '') + '</td>' +
-      '<td>' + (a.enviados || 0) + '</td>' +
-      '<td>' + (a.valoracion != null ? '<span class="estrellas">★</span> ' + String(a.valoracion).replace('.', ',') + ' <span class="ayuda">(' + a.nValoraciones + ')</span>' : '<span class="ayuda">—</span>') + '</td>' +
-      '<td class="acc"><button class="boton peq" data-ins="' + a.id + '">Inscripciones</button> <button class="boton peq" data-dis="' + a.id + '">🎨 Diseño</button> ' +
-      '<button class="boton peq" data-edit="' + a.id + '">Editar</button></td></tr>').join('');
-    $('vActividades').innerHTML = '<div class="pn-vista">' + cab('Actividades', '<button class="boton primario" id="nuevaAct">＋ Nueva actividad</button>',
-      'El interruptor abre o cierra la inscripción del alumnado para cada actividad.') +
-      (acts.length ? '<table class="tabla"><thead><tr><th>Actividad</th><th>Inscripción</th><th>Inscritos</th><th>Enviados</th><th>Valoración</th><th></th></tr></thead><tbody>' + filas + '</tbody></table>'
-        : '<div class="vacio">Aún no hay actividades. Crea la primera con «＋ Nueva actividad».</div>') + '</div>';
+    const tarjeta = (a) => {
+      const auto = a.auto || {};
+      const nAuto = ['validar', 'generar', 'firmar', 'alumnado'].filter((k) => auto[k]).length;
+      return '<article class="act" data-id="' + a.id + '">' +
+        '<div class="act-cab"><div style="flex:1;min-width:0"><h3>' + esc(a.nombre) + '</h3><div class="meta">' + esc(a.id) + ' · ' + esc(a.tipo || 'Sin tipo') + ' · ' + esc(a.fechas || 'sin fechas') +
+          (a.horas ? ' · ' + num(a.horas) + ' h' : '') + (a.ects ? ' · ' + num(a.ects) + ' ECTS' : '') + '</div></div>' +
+          '<button class="boton peq icono fantasma" data-edit aria-label="Editar la actividad" title="Editar">' + ic('lapiz') + '</button></div>' +
+        '<div class="act-num"><div><b>' + a.inscritos + '</b><span>Inscritos</span></div><div><b>' + a.pendientes + '</b><span>Por validar</span></div>' +
+          '<div><b>' + (a.enFirma + a.generados + a.firmados) + '</b><span>En curso</span></div><div><b>' + a.enviados + '</b><span>Enviados</span></div></div>' +
+        '<div class="act-ctrl">' + interruptor('', a.abierta, 'Inscripción abierta', ' data-abrir') + interruptor('', a.evaluacion, 'Evaluación abierta', ' data-evaluar') + '</div>' +
+        '<div class="act-marcas">' + (nAuto ? '<span class="chip c-indigo">' + ic('rayo', 'peq') + 'Automatizada (' + nAuto + '/4)</span>' : '') +
+          (a.enlace ? '<span class="chip c-verde">' + ic('hoja', 'peq') + 'Hoja enlazada</span>' : '') +
+          (a.valoracion != null ? '<span class="chip c-naranja">' + ic('estrella', 'peq') + num(a.valoracion) + ' · ' + a.nValoraciones + '</span>' : '') +
+          (a.conDiseno ? '<span class="chip c-azul">' + ic('paleta', 'peq') + 'Diseño propio</span>' : '') + '</div>' +
+        '<div class="act-pie"><button class="boton peq fantasma" data-ins>' + ic('personas', 'peq') + 'Inscripciones</button>' +
+          '<button class="boton peq fantasma" data-form>' + ic('formulario', 'peq') + 'Formularios</button>' +
+          '<button class="boton peq fantasma" data-dis>' + ic('paleta', 'peq') + 'Diseño</button>' +
+          '<button class="boton peq fantasma" data-val>' + ic('grafico', 'peq') + 'Valoraciones</button></div></article>';
+    };
+    $('vActividades').innerHTML = '<div class="pn-vista">' + cab('Actividades', '<button class="boton primario" id="nuevaAct">' + ic('mas') + 'Nueva actividad</button>',
+      'Abre o cierra la inscripción y la evaluación de cada actividad. En «Editar» puedes escribir su contexto (lo usa la IA) y automatizar el proceso.') +
+      (acts.length ? '<div class="acts">' + acts.map(tarjeta).join('') + '</div>' : vacio('calendario', 'Aún no hay actividades', 'Crea la primera con «Nueva actividad».')) + '</div>';
     $('nuevaAct').onclick = () => modalActividad({});
-    $('vActividades').querySelectorAll('[data-edit]').forEach((b) => { b.onclick = () => modalActividad(acts.find((a) => a.id === b.dataset.edit)); });
-    $('vActividades').querySelectorAll('[data-ins]').forEach((b) => { b.onclick = () => ir('inscripciones', { act: b.dataset.ins }); });
-    $('vActividades').querySelectorAll('[data-dis]').forEach((b) => { b.onclick = () => ir('editor', { act: b.dataset.dis, tab: 'diseno' }); });
-    $('vActividades').querySelectorAll('[data-abrir]').forEach((c) => {
-      c.onchange = async () => {
-        const a = acts.find((x) => x.id === c.dataset.abrir);
-        try { await llamar('api_guardarActividad', Object.assign({}, a, { abierta: c.checked })); aviso(c.checked ? 'Inscripción abierta.' : 'Inscripción cerrada.'); }
-        catch (e) { c.checked = !c.checked; aviso(e.message); }
+    $('vActividades').querySelectorAll('.act').forEach((el) => {
+      const a = acts.find((x) => x.id === el.dataset.id);
+      el.querySelector('[data-edit]').onclick = () => modalActividad(a);
+      el.querySelector('[data-ins]').onclick = () => ir('inscripciones', { act: a.id });
+      el.querySelector('[data-form]').onclick = () => ir('formularios', { act: a.id });
+      el.querySelector('[data-dis]').onclick = () => ir('editor', { act: a.id, tab: 'diseno' });
+      el.querySelector('[data-val]').onclick = () => ir('valoraciones', { act: a.id });
+      const sw = (sel, campo, si, no) => {
+        const c = el.querySelector(sel);
+        c.onchange = async () => {
+          try { await llamar('api_guardarActividad', { id: a.id, [campo]: c.checked }); a[campo] = c.checked; aviso(c.checked ? si : no); }
+          catch (e) { c.checked = !c.checked; aviso(e.message); }
+        };
       };
+      sw('[data-abrir]', 'abierta', 'Inscripción abierta.', 'Inscripción cerrada.');
+      sw('[data-evaluar]', 'evaluacion', 'Evaluación abierta.', 'Evaluación cerrada.');
     });
-  }
-  function modal(html, alAbrir) {
-    const f = document.createElement('div'); f.className = 'modal-fondo';
-    f.innerHTML = '<div class="modal">' + html + '</div>';
-    document.body.appendChild(f);
-    f.onclick = (e) => { if (e.target === f) f.remove(); };
-    const cerrar = () => f.remove();
-    f.querySelectorAll('[data-cerrar]').forEach((b) => { b.onclick = cerrar; });
-    if (alAbrir) alAbrir(f, cerrar);
-    return cerrar;
   }
   function modalActividad(a) {
     const tipos = ['Voluntariado', 'Retiro', 'Jornada', 'Encuentro', 'Celebración', 'Peregrinación', 'Formación', 'Otra'];
-    modal('<h3>' + (a.id ? 'Editar actividad' : 'Nueva actividad') + '</h3>' +
-      '<label>Nombre (tal como saldrá en el certificado)</label><input type="text" id="mNombre" value="' + esc(a.nombre || '') + '">' +
-      '<div class="fila2"><div><label>Tipo</label><select id="mTipo">' + tipos.map((t) => '<option' + (t === a.tipo ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>' +
-      '<div><label>Curso</label><input type="text" id="mCurso" value="' + esc(a.curso || '') + '" placeholder="2026-27"></div></div>' +
-      '<label>Fechas (con artículo, como en el certificado)</label><input type="text" id="mFechas" value="' + esc(a.fechas || '') + '" placeholder="los días 18 y 19 de marzo de 2027">' +
-      '<label>Lugar (vacío = en el Centro Universitario de la Sagrada Familia de Úbeda)</label><input type="text" id="mLugar" value="' + esc(a.lugar || '') + '" placeholder="en la Casa de Espiritualidad de Úbeda">' +
-      '<div class="fila2"><div><label>Horas</label><input type="number" min="0" step="0.5" id="mHoras" value="' + (a.horas || '') + '"></div>' +
-      '<div><label>Créditos ECTS</label><input type="number" min="0" step="0.5" id="mEcts" value="' + (a.ects || '') + '"></div></div>' +
-      '<label style="display:flex;gap:10px;align-items:center;margin-top:16px"><span class="pn-switch"><input type="checkbox" id="mAbierta"' + (a.abierta ? ' checked' : '') + '><span></span></span> Inscripción abierta</label>' +
-      '<div class="pie">' + (a.id && !a.inscritos ? '<button class="boton peligro" id="mBorrar" style="margin-right:auto">Borrar</button>' : '') +
+    const auto = a.auto || {};
+    const opcion = (k, t, d) => '<div class="opcion-auto">' + interruptor('mA_' + k, auto[k], '<span class="sr">' + t + '</span>') + '<div><b>' + t + '</b><span>' + d + '</span></div></div>';
+    modal('<h2>' + (a.id ? 'Editar actividad' : 'Nueva actividad') + '</h2>' +
+      '<label class="etq" for="mNombre">Nombre <small>(tal como saldrá en el certificado)</small></label><input type="text" id="mNombre" value="' + esc(a.nombre || '') + '">' +
+      '<div class="fila2"><div><label class="etq" for="mTipo">Tipo</label><select id="mTipo">' + tipos.map((t) => '<option' + (t === a.tipo ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>' +
+      '<div><label class="etq" for="mCurso">Curso</label><input type="text" id="mCurso" value="' + esc(a.curso || '') + '" placeholder="2026-27"></div></div>' +
+      '<label class="etq" for="mFechas">Fechas <small>(con artículo, como en el certificado)</small></label><input type="text" id="mFechas" value="' + esc(a.fechas || '') + '" placeholder="los días 18 y 19 de marzo de 2027">' +
+      '<label class="etq" for="mLugar">Lugar <small>(vacío = en el Centro Universitario de la Sagrada Familia de Úbeda)</small></label><input type="text" id="mLugar" value="' + esc(a.lugar || '') + '" placeholder="en la Casa de Espiritualidad de Úbeda">' +
+      '<div class="fila2"><div><label class="etq" for="mHoras">Horas</label><input type="number" min="0" step="0.5" id="mHoras" value="' + (a.horas || '') + '"></div>' +
+      '<div><label class="etq" for="mEcts">Créditos ECTS</label><input type="number" min="0" step="0.5" id="mEcts" value="' + (a.ects || '') + '"></div></div>' +
+      '<label class="etq" for="mContexto">Contexto <small>(qué se hace, objetivos, entidades colaboradoras… lo usa la IA para el texto del certificado, los formularios y el informe)</small></label>' +
+      '<textarea id="mContexto" rows="4" placeholder="Jornadas con la ONG Entreculturas sobre coeducación…">' + esc(a.contexto || '') + '</textarea>' +
+      '<fieldset><legend>Automatización</legend>' +
+      opcion('validar', 'Validar sola cada inscripción', 'Salvo las que tengan algún aviso (por ejemplo, mismo DNI con otro nombre).') +
+      opcion('generar', 'Generar los certificados', 'Cada hora, en el servidor, con el diseño guardado de la actividad.') +
+      opcion('firmar', 'Enviarlos a firmar', 'En cuanto estén generados, avisando al primer firmante.') +
+      opcion('alumnado', 'Enviarlos al alumnado', 'En cuanto tengan todas las firmas, con su código privado de descarga.') + '</fieldset>' +
+      '<div class="pie">' + (a.id && !a.inscritos ? '<button class="boton peligro" id="mBorrar" style="margin-right:auto">' + ic('papelera') + 'Borrar</button>' : '') +
       '<button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="mGuardar">Guardar</button></div>',
       (f, cerrar) => {
         f.querySelector('#mGuardar').onclick = async () => {
+          const g = (id) => f.querySelector('#' + id);
           try {
-            await llamar('api_guardarActividad', { id: a.id, nombre: f.querySelector('#mNombre').value, tipo: f.querySelector('#mTipo').value,
-              curso: f.querySelector('#mCurso').value.trim(), fechas: f.querySelector('#mFechas').value, lugar: f.querySelector('#mLugar').value,
-              horas: f.querySelector('#mHoras').value, ects: f.querySelector('#mEcts').value, abierta: f.querySelector('#mAbierta').checked });
+            await llamar('api_guardarActividad', { id: a.id, nombre: g('mNombre').value, tipo: g('mTipo').value, curso: g('mCurso').value.trim(), fechas: g('mFechas').value,
+              lugar: g('mLugar').value, horas: g('mHoras').value, ects: g('mEcts').value, contexto: g('mContexto').value,
+              auto: { validar: g('mA_validar').checked, generar: g('mA_generar').checked, firmar: g('mA_firmar').checked, alumnado: g('mA_alumnado').checked },
+              abierta: a.id ? undefined : false });
             cerrar(); aviso('Actividad guardada.'); vActividades();
           } catch (e) { aviso(e.message); }
         };
         const b = f.querySelector('#mBorrar');
-        if (b) b.onclick = async () => { if (!confirm('¿Borrar la actividad?')) return; try { await llamar('api_borrarActividad', a.id); cerrar(); vActividades(); } catch (e) { aviso(e.message); } };
-        f.querySelector('#mNombre').focus();
-      });
+        if (b) b.onclick = async () => { cerrar(); if (!(await preguntar('¿Borrar la actividad?', 'Se borrará «' + esc(a.nombre) + '». No tiene inscripciones.', 'Borrar', true))) return; try { await llamar('api_borrarActividad', a.id); vActividades(); } catch (e) { aviso(e.message); } };
+      }, true);
   }
 
   // ─────────── INSCRIPCIONES ───────────
@@ -466,61 +663,336 @@
     const acts = P.actividades.length ? P.actividades : await actividades();
     if (op && op.act) P.actSel = op.act;
     if (!P.actSel || !acts.some((a) => a.id === P.actSel)) P.actSel = (acts.find((a) => a.pendientes) || acts[0] || {}).id || '';
-    if (!acts.length) { $('vInscripciones').innerHTML = '<div class="pn-vista">' + cab('Inscripciones') + '<div class="vacio">Primero crea una actividad.</div></div>'; return; }
+    if (!acts.length) { $('vInscripciones').innerHTML = '<div class="pn-vista">' + cab('Inscripciones') + vacio('calendario', 'Primero crea una actividad') + '</div>'; return; }
     const lista = await llamar('api_inscripciones', P.actSel);
     const filtro = P.filtroIns || 'todas';
-    const vis = lista.filter((i) => filtro === 'todas' || i.estado === filtro || (filtro === 'validada' && i.estado === 'generando'));
-    const n = (e) => lista.filter((i) => i.estado === e).length;
+    const vis = lista.filter((i) => filtro === 'todas' || i.estado === filtro || (filtro === 'validada' && i.estado === 'generando') ||
+      (filtro === 'curso' && ['generado', 'firma', 'firmado', 'revisar'].indexOf(i.estado) > -1));
+    const n = (e) => lista.filter((i) => e.indexOf(i.estado) > -1).length;
     const roles = ['Participante', 'Organización', 'Coordinación'];
     const editable = (e) => ['pendiente', 'validada', 'rechazada', 'revisar'].indexOf(e) > -1;
-    $('vInscripciones').innerHTML = '<div class="pn-vista">' + cab('Inscripciones', '<button class="boton primario" id="irGenerar">🖨️ Generar certificados (' + (n('validada') + n('generando')) + ')</button>',
+    const porGenerar = n(['validada', 'generando']);
+    $('vInscripciones').innerHTML = '<div class="pn-vista">' + cab('Inscripciones',
+      '<button class="boton" id="irImportar">' + ic('hoja') + 'Importar de una hoja</button><button class="boton primario" id="irGenerar"' + (porGenerar ? '' : ' disabled') + '>' + ic('paleta') + 'Generar certificados (' + porGenerar + ')</button>',
       'Comprueba quién participó y con qué rol, y valida. Las personas validadas pasan a «Diseñar y generar».') +
-      '<div class="filtros"><select id="selAct">' + acts.map((a) => '<option value="' + a.id + '"' + (a.id === P.actSel ? ' selected' : '') + '>' + esc(a.nombre) + '</option>').join('') + '</select>' +
-      '<div class="seg" id="segFiltro">' + [['todas', 'Todas (' + lista.length + ')'], ['pendiente', 'Por validar (' + n('pendiente') + ')'], ['validada', 'Validadas (' + (n('validada') + n('generando')) + ')'], ['firma', 'En firma (' + n('firma') + ')'], ['enviado', 'Enviadas (' + n('enviado') + ')'], ['rechazada', 'Rechazadas (' + n('rechazada') + ')']]
-        .map((f) => '<button data-f="' + f[0] + '" class="' + (f[0] === filtro ? 'activo' : '') + '">' + f[1] + '</button>').join('') + '</div></div>' +
-      (vis.length ? '<table class="tabla"><thead><tr><th><input type="checkbox" id="selTodas"></th><th>Persona</th><th>DNI/NIE</th><th>Rol</th><th>Estado</th><th></th></tr></thead><tbody>' +
-        vis.map((i) => '<tr data-reg="' + i.reg + '"><td>' + (editable(i.estado) ? '<input type="checkbox" class="sel">' : '') + '</td>' +
-          '<td><b>' + esc(i.nombreCompleto) + '</b><div class="ayuda">' + esc(i.emailOculto) + ' · ' + esc(i.fecha) + (i.notas ? ' · <span style="color:var(--mal)">' + esc(i.notas) + '</span>' : '') + '</div></td>' +
-          '<td><span class="dni">' + esc(i.dniOculto) + '</span> <a href="#" class="ver" title="Ver DNI">👁</a></td>' +
-          '<td>' + (editable(i.estado) ? '<select class="rol">' + roles.map((r) => '<option' + (r === i.rol ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' : esc(i.rol)) + '</td>' +
+      '<div class="filtros">' + selectorAct('selAct', acts, P.actSel) +
+      '<div class="seg" id="segFiltro" role="tablist">' + [['todas', 'Todas', lista.length], ['pendiente', 'Por validar', n(['pendiente'])], ['validada', 'Validadas', porGenerar],
+        ['curso', 'En curso', n(['generado', 'firma', 'firmado', 'revisar'])], ['enviado', 'Enviadas', n(['enviado'])], ['rechazada', 'Rechazadas', n(['rechazada'])]]
+        .map((f) => '<button role="tab" aria-selected="' + (f[0] === filtro) + '" data-f="' + f[0] + '" class="' + (f[0] === filtro ? 'activo' : '') + '">' + f[1] + ' (' + f[2] + ')</button>').join('') + '</div></div>' +
+      (vis.length ? '<div class="tabla-env"><table class="tabla"><thead><tr><th><input type="checkbox" id="selTodas" aria-label="Seleccionar todas"></th><th>Persona</th><th>DNI/NIE</th><th>Rol</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        vis.map((i) => '<tr data-reg="' + i.reg + '"><td>' + (editable(i.estado) ? '<input type="checkbox" class="sel" aria-label="Seleccionar a ' + esc(i.nombreCompleto) + '">' : '') + '</td>' +
+          '<td><b>' + esc(i.nombreCompleto) + '</b><div class="ayuda">' + (i.emailOculto ? esc(i.emailOculto) : '<span style="color:var(--mal)">sin correo</span>') + ' · ' + esc(i.fecha) + ' · ' + (ORIGEN[i.origen] || esc(i.origen)) +
+            (i.notas ? '<br><span style="color:var(--mal)">' + esc(i.notas) + '</span>' : '') + '</div></td>' +
+          '<td style="white-space:nowrap"><span class="dni">' + esc(i.dniOculto) + '</span> <button class="boton peq icono fantasma ver" aria-label="Ver el DNI completo" title="Ver DNI (queda registrado)">' + ic('ojo', 'peq') + '</button></td>' +
+          '<td>' + (editable(i.estado) ? '<select class="rol" aria-label="Rol">' + roles.map((r) => '<option' + (r === i.rol ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' : esc(i.rol)) + '</td>' +
           '<td>' + chip(i.estado, i.codigo) + '</td>' +
-          '<td class="acc">' + (editable(i.estado) ? '<button class="boton peq corregir">Corregir datos</button>' : '') + '</td></tr>').join('') + '</tbody></table>'
-        : '<div class="vacio">No hay inscripciones en este filtro.</div>') +
+          '<td class="acc"><button class="boton peq corregir">' + ic('lapiz', 'peq') + 'Corregir</button></td></tr>').join('') + '</tbody></table></div>'
+        : vacio('personas', 'No hay inscripciones en este filtro', 'Comparte el formulario de inscripción o importa una hoja de Drive.')) +
       '<div class="barra-lote oculto" id="lote"><span id="loteN"></span><span style="margin-left:auto"></span>' +
-      '<button class="boton primario" data-lote="validada">✔ Validar</button><button class="boton" data-lote="rechazada">Rechazar</button><button class="boton" data-lote="pendiente">Volver a pendiente</button></div></div>';
+      '<button class="boton primario" data-lote="validada">' + ic('ok') + 'Validar</button><button class="boton" data-lote="rechazada">Rechazar</button><button class="boton" data-lote="pendiente">Volver a pendiente</button></div></div>';
     const v = $('vInscripciones');
     $('selAct').onchange = () => { P.actSel = $('selAct').value; vInscripciones(); };
     v.querySelectorAll('#segFiltro button').forEach((b) => { b.onclick = () => { P.filtroIns = b.dataset.f; vInscripciones(); }; });
     $('irGenerar').onclick = () => ir('editor', { act: P.actSel, tab: 'generar' });
+    $('irImportar').onclick = () => ir('importar', { act: P.actSel });
     const actualizarLote = () => { const n2 = v.querySelectorAll('.sel:checked').length; $('lote').classList.toggle('oculto', !n2); $('loteN').textContent = n2 + ' seleccionada(s)'; };
     v.querySelectorAll('.sel').forEach((c) => { c.onchange = actualizarLote; });
     if ($('selTodas')) $('selTodas').onchange = () => { v.querySelectorAll('.sel').forEach((c) => { c.checked = $('selTodas').checked; }); actualizarLote(); };
     v.querySelectorAll('[data-lote]').forEach((b) => {
       b.onclick = async () => {
         const regs = [...v.querySelectorAll('.sel:checked')].map((c) => c.closest('tr').dataset.reg);
-        try { const k = await llamar('api_cambiarInscripciones', regs, { estado: b.dataset.lote }); aviso(k + ' actualizada(s).'); vInscripciones(); actividades(); }
+        try { const k = await llamar('api_cambiarInscripciones', regs, { estado: b.dataset.lote }); aviso(k + ' actualizada(s).'); await actividades(); vInscripciones(); }
         catch (e) { aviso(e.message); }
       };
     });
     v.querySelectorAll('select.rol').forEach((s) => {
       s.onchange = async () => { try { await llamar('api_cambiarInscripciones', [s.closest('tr').dataset.reg], { rol: s.value }); aviso('Rol cambiado.'); } catch (e) { aviso(e.message); } };
     });
-    v.querySelectorAll('a.ver').forEach((a) => {
-      a.onclick = async (e) => { e.preventDefault(); const tr = a.closest('tr'); try { tr.querySelector('.dni').textContent = await llamar('api_revelarDni', tr.dataset.reg); a.remove(); } catch (x) { aviso(x.message); } };
+    v.querySelectorAll('button.ver').forEach((a) => {
+      a.onclick = async () => { const tr = a.closest('tr'); try { tr.querySelector('.dni').textContent = await llamar('api_revelarDni', tr.dataset.reg); a.remove(); } catch (x) { aviso(x.message); } };
     });
-    v.querySelectorAll('button.corregir').forEach((b) => {
-      b.onclick = () => {
-        const i = lista.find((x) => x.reg === b.closest('tr').dataset.reg);
-        modal('<h3>Corregir datos</h3><p class="ayuda">Los cambios se aplican a todas las inscripciones de esta persona y quedan anotados.</p>' +
-          '<div class="fila2"><div><label>Nombre</label><input type="text" id="cNombre" value="' + esc(i.nombre) + '"></div><div><label>Apellidos</label><input type="text" id="cApellidos" value="' + esc(i.apellidos) + '"></div></div>' +
-          '<label>DNI/NIE (déjalo vacío para no cambiarlo)</label><input type="text" id="cDni" placeholder="' + esc(i.dniOculto) + '">' +
-          '<div class="pie"><button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="cGuardar">Guardar</button></div>', (f, cerrar) => {
-          f.querySelector('#cGuardar').onclick = async () => {
-            const c = { nombre: f.querySelector('#cNombre').value, apellidos: f.querySelector('#cApellidos').value };
-            if (f.querySelector('#cDni').value.trim()) c.dni = f.querySelector('#cDni').value;
-            try { await llamar('api_corregirPersona', i.persona, c); cerrar(); aviso('Datos corregidos.'); vInscripciones(); } catch (e) { aviso(e.message); }
+    v.querySelectorAll('button.corregir').forEach((b) => { b.onclick = () => modalCorregir(lista.find((x) => x.reg === b.closest('tr').dataset.reg), () => vInscripciones()); });
+  }
+  function modalCorregir(i, despues) {
+    modal('<h2>Corregir datos</h2><p class="ayuda">Se aplican a todas las inscripciones de esta persona y quedan anotados en el registro.</p>' +
+      '<div class="fila2"><div><label class="etq" for="cNombre">Nombre</label><input type="text" id="cNombre" value="' + esc(i.nombre) + '"></div><div><label class="etq" for="cApellidos">Apellidos</label><input type="text" id="cApellidos" value="' + esc(i.apellidos) + '"></div></div>' +
+      '<label class="etq" for="cDni">DNI/NIE <small>(déjalo vacío para no cambiarlo)</small></label><input type="text" id="cDni" placeholder="' + esc(i.dniOculto) + '">' +
+      '<label class="etq" for="cEmail">Correo <small>(déjalo vacío para no cambiarlo)</small></label><input type="email" id="cEmail" placeholder="' + esc(i.emailOculto || 'sin correo') + '">' +
+      '<div class="pie"><button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="cGuardar">Guardar</button></div>', (f, cerrar) => {
+      f.querySelector('#cGuardar').onclick = async () => {
+        const c = { nombre: f.querySelector('#cNombre').value, apellidos: f.querySelector('#cApellidos').value };
+        if (f.querySelector('#cDni').value.trim()) c.dni = f.querySelector('#cDni').value;
+        if (f.querySelector('#cEmail').value.trim()) c.email = f.querySelector('#cEmail').value;
+        try { await llamar('api_corregirPersona', i.persona, c); cerrar(); aviso('Datos corregidos.'); if (despues) despues(); } catch (e) { aviso(e.message); }
+      };
+    });
+  }
+
+  // ─────────── FORMULARIOS ───────────
+  const NOMBRE_TIPO = { escala: 'Escala 1–5', unica: 'Una opción', multiple: 'Varias opciones', corto: 'Respuesta corta', largo: 'Respuesta larga' };
+  const CLAVES = { '': '—', general: 'Valoración general', comentario: 'Comentario (lo que se lleva)', mejora: 'Propuesta de mejora' };
+  async function vFormularios(op) {
+    const acts = P.actividades.length ? P.actividades : await actividades();
+    if (op && op.act) P.actSel = op.act;
+    if (!P.actSel || !acts.some((a) => a.id === P.actSel)) P.actSel = (acts[0] || {}).id || '';
+    if (!acts.length) { $('vFormularios').innerHTML = '<div class="pn-vista">' + cab('Formularios') + vacio('calendario', 'Primero crea una actividad') + '</div>'; return; }
+    P.tipoForm = (op && op.tipo) || P.tipoForm || 'inscripcion';
+    const d = await llamar('api_formularios', P.actSel);
+    const F = { def: JSON.parse(JSON.stringify(d[P.tipoForm])), guardado: '' };
+    F.guardado = JSON.stringify(F.def);
+    const tipo = P.tipoForm, esEval = tipo === 'evaluacion';
+    const abierto = esEval ? d.actividad.evaluacion : d.actividad.abierta;
+    $('vFormularios').innerHTML = '<div class="pn-vista">' + cab('Formularios', '',
+      'Diseña lo que ve el alumnado. La inscripción siempre pide nombre, apellidos, DNI, correo, rol y los consentimientos; aquí añades lo demás. La evaluación es anónima.') +
+      '<div class="filtros">' + selectorAct('fSelAct', acts, P.actSel) +
+      '<div class="seg" role="tablist"><button role="tab" data-t="inscripcion" aria-selected="' + !esEval + '" class="' + (!esEval ? 'activo' : '') + '">Inscripción</button>' +
+      '<button role="tab" data-t="evaluacion" aria-selected="' + esEval + '" class="' + (esEval ? 'activo' : '') + '">Evaluación</button></div></div>' +
+      '<div class="fb"><div>' +
+        '<div class="caja"><h3>' + ic('enlace') + (esEval ? 'Enlace de la evaluación' : 'Enlace de la inscripción') + '<span class="acciones">' + interruptor('fAbierto', abierto, abierto ? 'Abierto' : 'Cerrado') + '</span></h3>' +
+          '<div class="lista-enlaces">' + enlaceFila(d.actividad.nombre, d.urls[tipo]) + '</div></div>' +
+        '<div class="caja"><h3>' + ic('formulario') + 'Cabecera<span class="acciones">' + (d.ia ? '<button class="boton peq ia" id="fIa">' + ic('ia', 'peq') + 'Proponer con IA</button>' : '') + '</span></h3>' +
+          '<label class="etq" for="fTitulo">Título</label><input type="text" id="fTitulo" maxlength="140">' +
+          '<label class="etq" for="fIntro">Introducción</label><textarea id="fIntro" rows="3" maxlength="1200"></textarea>' +
+          '<span class="etq">Color</span><div class="colores" id="fColores"></div>' +
+          '<label class="etq" for="fCierre">Mensaje al terminar</label><input type="text" id="fCierre" maxlength="400"></div>' +
+        '<div class="caja"><h3>' + ic('lista') + 'Preguntas' + (esEval ? '' : ' adicionales') + '</h3><div id="fPreguntas"></div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">' + Object.keys(NOMBRE_TIPO).map((k) => '<button class="boton peq suave" data-anadir="' + k + '">' + ic('mas', 'peq') + NOMBRE_TIPO[k] + '</button>').join('') + '</div>' +
+          (esEval ? '<p class="ayuda" style="margin:12px 0 0">Marca qué pregunta es la <b>valoración general</b>, cuál recoge <b>lo que se llevan</b> y cuál las <b>propuestas de mejora</b>: así salen en el informe.</p>' : '<p class="ayuda" style="margin:12px 0 0">No pidas datos de salud, religión ni otros datos sensibles: no hacen falta para el certificado.</p>') + '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="boton primario" id="fGuardar">' + ic('ok') + 'Guardar formulario</button>' +
+          (d.propio[tipo] ? '<button class="boton" id="fRestablecer">Volver al formulario base</button>' : '') + '<span class="ayuda" id="fEstado"></span></div>' +
+      '</div><div><div class="movil-marco" aria-label="Vista previa en un móvil"><div class="pantalla" id="fVista"></div></div><p class="ayuda" style="text-align:center">Vista previa: así lo verá el alumnado en el móvil.</p></div></div></div>';
+    const v = $('vFormularios');
+    $('fSelAct').onchange = async () => { if (cambiado() && !(await preguntar('Hay cambios sin guardar', '¿Cambiar de actividad igualmente?', 'Cambiar'))) { $('fSelAct').value = P.actSel; return; } P.actSel = $('fSelAct').value; vFormularios(); };
+    v.querySelectorAll('[data-t]').forEach((b) => { b.onclick = async () => { if (cambiado() && !(await preguntar('Hay cambios sin guardar', '¿Cambiar de formulario igualmente?', 'Cambiar'))) return; P.tipoForm = b.dataset.t; vFormularios(); }; });
+    enlazarEnlaces(v);
+    $('fAbierto').onchange = async () => {
+      const c = $('fAbierto');
+      try { await llamar('api_guardarActividad', { id: P.actSel, [esEval ? 'evaluacion' : 'abierta']: c.checked }); c.nextElementSibling.nextElementSibling.textContent = c.checked ? 'Abierto' : 'Cerrado'; aviso(c.checked ? 'Formulario abierto.' : 'Formulario cerrado.'); actividades(); }
+      catch (e) { c.checked = !c.checked; aviso(e.message); }
+    };
+    const cambiado = () => JSON.stringify(F.def) !== F.guardado;
+    const estado = () => { $('fEstado').textContent = cambiado() ? 'Cambios sin guardar' : 'Guardado'; $('fEstado').style.color = cambiado() ? 'var(--aviso)' : ''; };
+    const cabecera = () => {
+      $('fTitulo').value = F.def.titulo; $('fIntro').value = F.def.intro; $('fCierre').value = F.def.cierre || '';
+      $('fColores').innerHTML = PALETA.map((p) => '<button class="muestra' + (p[1].toLowerCase() === F.def.color.toLowerCase() ? ' activo' : '') + '" style="background:' + p[1] + '" data-color="' + p[1] + '" aria-label="' + p[0] + '" title="' + p[0] + '"></button>').join('') +
+        '<input type="color" id="fColor" value="' + F.def.color + '" aria-label="Otro color">';
+      $('fColores').querySelectorAll('[data-color]').forEach((b) => { b.onclick = () => { F.def.color = b.dataset.color; cabecera(); cambio(); }; });
+      $('fColor').oninput = () => { F.def.color = $('fColor').value; cambio(); };
+    };
+    ['fTitulo', 'fIntro', 'fCierre'].forEach((id) => { $(id).oninput = () => { F.def[{ fTitulo: 'titulo', fIntro: 'intro', fCierre: 'cierre' }[id]] = $(id).value; cambio(); }; });
+    const preguntas = () => {
+      $('fPreguntas').innerHTML = F.def.preguntas.length ? F.def.preguntas.map((q, k) => '<div class="preg" data-k="' + k + '">' +
+        '<div class="preg-cab"><span class="n">' + (k + 1) + '</span><select data-campo="tipo" aria-label="Tipo de pregunta">' + Object.keys(NOMBRE_TIPO).map((t) => '<option value="' + t + '"' + (t === q.tipo ? ' selected' : '') + '>' + NOMBRE_TIPO[t] + '</option>').join('') + '</select>' +
+          (esEval ? '<select data-campo="clave" aria-label="Uso en el informe">' + Object.keys(CLAVES).map((c) => '<option value="' + c + '"' + (c === (q.clave || '') ? ' selected' : '') + '>' + CLAVES[c] + '</option>').join('') + '</select>' : '') +
+          '<span class="der"><button class="boton peq icono fantasma" data-mover="-1" aria-label="Subir"' + (k ? '' : ' disabled') + '>' + ic('arriba', 'peq') + '</button>' +
+          '<button class="boton peq icono fantasma" data-mover="1" aria-label="Bajar"' + (k < F.def.preguntas.length - 1 ? '' : ' disabled') + '>' + ic('abajo', 'peq') + '</button>' +
+          '<button class="boton peq icono fantasma peligro" data-quitar aria-label="Quitar la pregunta">' + ic('papelera', 'peq') + '</button></span></div>' +
+        '<label class="etq">Pregunta</label><input type="text" data-campo="texto" value="' + esc(q.texto) + '" maxlength="300">' +
+        ((q.tipo === 'unica' || q.tipo === 'multiple') ? '<label class="etq">Opciones <small>(una por línea)</small></label><textarea data-campo="opciones" rows="3">' + esc((q.opciones || []).join('\n')) + '</textarea>' : '') +
+        '<div style="margin-top:6px">' + interruptor('', q.obligatoria, 'Obligatoria', ' data-campo="obligatoria"') + '</div></div>').join('')
+        : '<p class="ayuda" style="margin:0 0 12px">' + (esEval ? 'Añade al menos una pregunta.' : 'Sin preguntas adicionales: solo se pedirán los datos para el certificado.') + '</p>';
+      $('fPreguntas').querySelectorAll('.preg').forEach((el) => {
+        const q = F.def.preguntas[Number(el.dataset.k)];
+        el.querySelectorAll('[data-campo]').forEach((c) => {
+          const campo = c.dataset.campo;
+          const ev = c.tagName === 'SELECT' || c.type === 'checkbox' ? 'onchange' : 'oninput';
+          c[ev] = () => {
+            if (campo === 'obligatoria') q.obligatoria = c.checked;
+            else if (campo === 'opciones') q.opciones = c.value.split('\n');
+            else if (campo === 'clave') { if (c.value) q.clave = c.value; else delete q.clave; }
+            else q[campo] = c.value;
+            if (campo === 'tipo') { if ((q.tipo === 'unica' || q.tipo === 'multiple') && !(q.opciones || []).length) q.opciones = ['Sí', 'No']; preguntas(); }
+            cambio();
           };
         });
+        el.querySelectorAll('[data-mover]').forEach((b) => { b.onclick = () => { const k = Number(el.dataset.k), j = k + Number(b.dataset.mover); const l = F.def.preguntas; [l[k], l[j]] = [l[j], l[k]]; preguntas(); cambio(); }; });
+        el.querySelector('[data-quitar]').onclick = () => { F.def.preguntas.splice(Number(el.dataset.k), 1); preguntas(); cambio(); };
+      });
+    };
+    v.querySelectorAll('[data-anadir]').forEach((b) => {
+      b.onclick = () => {
+        const t = b.dataset.anadir;
+        F.def.preguntas.push({ id: 'q' + Date.now().toString(36), tipo: t, texto: '', obligatoria: false, opciones: t === 'unica' || t === 'multiple' ? ['Sí', 'No'] : undefined });
+        preguntas(); cambio();
+        const ult = $('fPreguntas').querySelector('.preg:last-child input[data-campo="texto"]'); if (ult) ult.focus();
+      };
+    });
+    const vista = () => {
+      const def = F.def;
+      const valida = Object.assign({}, def, { preguntas: def.preguntas.filter((q) => q.texto && (!(q.tipo === 'unica' || q.tipo === 'multiple') || (q.opciones || []).filter(String).length >= 2))
+        .map((q) => Object.assign({}, q, { opciones: (q.opciones || []).filter(String) })) });
+      $('fVista').innerHTML = '<div class="pv-cab" style="background:' + esc(def.color) + '"><small>' + (esEval ? 'Evaluación · ' : 'Inscripción · ') + esc(d.actividad.tipo || 'Pastoral') + '</small><h2>' + esc(def.titulo) + '</h2><p>' + esc(def.intro) + '</p></div>' +
+        '<div class="pv-cuerpo">' + (esEval ? '' : '<div class="pv-fijo">' + ic('candado', 'peq') + ' Siempre se piden: nombre, apellidos, DNI/NIE, correo y cómo participaste, y los dos consentimientos RGPD.</div>') +
+        '<div id="fvPrev"></div><button class="boton primario" style="width:100%" tabindex="-1" aria-hidden="true">' + (esEval ? 'Enviar mi valoración' : 'Enviar inscripción') + '</button></div>';
+      window.FV.montar($('fvPrev'), valida, 'pv_');
+    };
+    const cambio = () => { estado(); clearTimeout(F.t); F.t = setTimeout(vista, 120); };
+    $('fGuardar').onclick = async () => {
+      try { F.def = await llamar('api_guardarFormulario', P.actSel, tipo, F.def); F.guardado = JSON.stringify(F.def); cabecera(); preguntas(); vista(); estado(); aviso('Formulario guardado.'); }
+      catch (e) { aviso(e.message); }
+    };
+    if ($('fRestablecer')) $('fRestablecer').onclick = async () => {
+      if (!(await preguntar('¿Volver al formulario base?', 'Se descartará el formulario propio de esta actividad.', 'Volver al base', true))) return;
+      try { await llamar('api_guardarFormulario', P.actSel, tipo, null); vFormularios(); } catch (e) { aviso(e.message); }
+    };
+    if ($('fIa')) $('fIa').onclick = async () => {
+      if (!d.actividad.contexto) aviso('Consejo: escribe el contexto de la actividad en «Actividades > Editar» para que la propuesta sea más precisa.');
+      try { cargando(true, 'La IA está preparando una propuesta…'); const s = await llamar('api_iaFormulario', P.actSel, tipo); F.def = s; cabecera(); preguntas(); cambio(); aviso('Propuesta lista: revísala y guarda si te convence.'); }
+      catch (e) { aviso(e.message); } finally { cargando(false); }
+    };
+    cabecera(); preguntas(); vista(); estado();
+  }
+
+  // ─────────── IMPORTAR DE DRIVE ───────────
+  async function vImportar(op) {
+    const acts = P.actividades.length ? P.actividades : await actividades();
+    if (op && op.act) P.actSel = op.act;
+    if (!P.actSel || !acts.some((a) => a.id === P.actSel)) P.actSel = (acts[0] || {}).id || '';
+    const enlazadas = acts.filter((a) => a.enlace);
+    $('vImportar').innerHTML = '<div class="pn-vista">' + cab('Importar de Drive', '',
+      'Trae las respuestas de un formulario de Google (o cualquier hoja de cálculo) a una actividad. Los DNI y correos van directos a la bóveda. Si la dejas <b>enlazada</b>, cada hora se importan solas las respuestas nuevas.') +
+      (acts.length ? '' : vacio('calendario', 'Primero crea una actividad')) +
+      '<div class="caja"><h2>' + ic('hoja') + '1. La hoja de cálculo</h2>' +
+        '<label class="etq" for="hUrl">Dirección de la hoja <small>(en Google Forms: Respuestas › Ver en Hojas de cálculo, y copia la dirección)</small></label>' +
+        '<div class="enlace-copia"><input type="url" id="hUrl" placeholder="https://docs.google.com/spreadsheets/d/…" value="' + esc(P.hojaUrl || '') + '"><button class="boton primario" id="hAbrir">Abrir</button></div>' +
+        '<p class="ayuda" style="margin:10px 0 0">Si la hoja es de otra cuenta, compártela como lectora con la cuenta propietaria de la app.</p></div>' +
+      '<div id="hPaso2"></div>' +
+      (enlazadas.length ? '<div class="caja"><h2>' + ic('enlace') + 'Hojas enlazadas</h2><div class="lista-enlaces">' + enlazadas.map((a) =>
+        '<div data-id="' + a.id + '"><b>' + esc(a.nombre) + '<div class="ayuda" style="font-weight:600">' + esc(a.enlace.nombre || '') + ' › ' + esc(a.enlace.hoja || '') + ' · última vez: ' + esc(a.enlace.ultima || '—') + ' · ' + a.enlace.total + ' importadas</div></b>' +
+        '<button class="boton peq" data-sinc>' + ic('recargar', 'peq') + 'Sincronizar ahora</button><button class="boton peq peligro" data-desen>Desenlazar</button></div>').join('') + '</div></div>' : '') + '</div>';
+    $('hAbrir').onclick = () => abrirHoja();
+    $('hUrl').onkeydown = (e) => { if (e.key === 'Enter') abrirHoja(); };
+    $('vImportar').querySelectorAll('[data-sinc]').forEach((b) => {
+      b.onclick = async () => { const id = b.closest('[data-id]').dataset.id; try { cargando(true, 'Sincronizando…'); mostrarResultado(await llamar('api_hojaSincronizar', id)); await actividades(); } catch (e) { aviso(e.message); } finally { cargando(false); } };
+    });
+    $('vImportar').querySelectorAll('[data-desen]').forEach((b) => {
+      b.onclick = async () => { const id = b.closest('[data-id]').dataset.id; if (!(await preguntar('¿Desenlazar la hoja?', 'Lo ya importado se queda. Simplemente dejarán de traerse respuestas nuevas.', 'Desenlazar', true))) return; try { await llamar('api_hojaDesenlazar', id); await actividades(); vImportar(); } catch (e) { aviso(e.message); } };
+    });
+  }
+  async function abrirHoja(nombreHoja) {
+    P.hojaUrl = $('hUrl').value.trim();
+    if (!P.hojaUrl) return aviso('Pega la dirección de la hoja.');
+    let h;
+    try { cargando(true, 'Abriendo la hoja…'); h = await llamar('api_hojaAbrir', P.hojaUrl, nombreHoja || ''); } catch (e) { aviso(e.message); return; } finally { cargando(false); }
+    const acts = P.actividades;
+    const opciones = (sel) => '<option value="">— no está —</option>' + h.cabeceras.map((c, i) => '<option value="' + i + '"' + (sel === i ? ' selected' : '') + '>' + esc(c || ('Columna ' + (i + 1))) + '</option>').join('');
+    const ejemplo = (i) => i === undefined || i === '' ? '' : h.ejemplos.map((f) => f[i]).filter(String).slice(0, 2).join(' · ');
+    $('hPaso2').innerHTML = '<div class="caja"><h2>' + ic('lista') + '2. Qué columna es cada dato</h2>' +
+      '<div class="fila2"><div><label class="etq" for="hHoja">Pestaña</label><select id="hHoja">' + h.hojas.map((x) => '<option' + (x === h.hoja ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></div>' +
+      '<div><label class="etq" for="hAct">Actividad a la que se importan</label>' + selectorAct('hAct', acts, P.actSel) + '</div></div>' +
+      '<p class="ayuda">«' + esc(h.nombre) + '» · ' + h.filas + ' fila(s) con respuestas. Los ejemplos aparecen enmascarados.</p>' +
+      '<div class="mapa">' + Object.keys(h.campos).map((k) => '<label class="etq" style="margin:0" for="hc_' + k + '">' + esc(h.campos[k]) + (k === 'dni' ? ' *' : '') + '</label>' +
+        '<select id="hc_' + k + '" data-campo="' + k + '">' + opciones(h.sugerencia[k]) + '</select><span class="ej" data-ej="' + k + '">' + esc(ejemplo(h.sugerencia[k])) + '</span>').join('') + '</div>' +
+      '<div class="fila2"><div><label class="etq" for="hRol">Rol si la hoja no lo dice</label><select id="hRol">' + h.roles.map((r) => '<option>' + r + '</option>').join('') + '</select></div>' +
+      '<div><label class="etq" for="hFiltro">Solo filas cuya actividad contenga <small>(si el formulario sirve para varias)</small></label><input type="text" id="hFiltro" placeholder="Por ejemplo: Adviento"></div></div>' +
+      '<label class="interruptor" style="margin-top:14px;align-items:flex-start"><input type="checkbox" id="hConsent"><span class="pista" aria-hidden="true" style="margin-top:2px"></span><span>Confirmo que el formulario informa de la privacidad y recoge el consentimiento del alumnado (RGPD arts. 6.1.a y 9.2.a).</span></label>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px"><button class="boton" id="hUnaVez">' + ic('descargar') + 'Importar una vez</button>' +
+      '<button class="boton primario" id="hEnlazar">' + ic('enlace') + 'Importar y dejar enlazada</button></div><div id="hResultado"></div></div>';
+    $('hHoja').onchange = () => abrirHoja($('hHoja').value);
+    $('hAct').onchange = () => { P.actSel = $('hAct').value; };
+    $('hPaso2').querySelectorAll('[data-campo]').forEach((s) => { s.onchange = () => { $('hPaso2').querySelector('[data-ej="' + s.dataset.campo + '"]').textContent = ejemplo(s.value === '' ? undefined : Number(s.value)); }; });
+    const importar = async (enlazar) => {
+      const columnas = {};
+      $('hPaso2').querySelectorAll('[data-campo]').forEach((s) => { if (s.value !== '') columnas[s.dataset.campo] = Number(s.value); });
+      const cfg = { id: h.id, hoja: $('hHoja').value, columnas, rol: $('hRol').value, filtro: $('hFiltro').value, consentimiento: $('hConsent').checked };
+      try { cargando(true, 'Importando…'); const r = await llamar('api_hojaImportar', $('hAct').value, cfg, enlazar); mostrarResultado(r, enlazar); await actividades(); }
+      catch (e) { aviso(e.message); } finally { cargando(false); }
+    };
+    $('hUnaVez').onclick = () => importar(false);
+    $('hEnlazar').onclick = () => importar(true);
+  }
+  function mostrarResultado(r, enlazada) {
+    const html = '<div class="' + (r.errores.length ? 'aviso' : 'exito-msg') + '" style="margin-top:16px">' + ic(r.errores.length ? 'aviso' : 'ok') + '<div><b>' + r.nuevas + ' inscripción(es) nuevas</b> · ' + r.repetidas + ' ya estaban · ' +
+      r.errores.length + ' con problemas' + (r.sinCorreo ? ' · ' + r.sinCorreo + ' sin correo válido' : '') + (r.valoraciones ? ' · ' + r.valoraciones + ' valoración(es)' : '') +
+      (enlazada ? '<br>La hoja queda enlazada: las respuestas nuevas se traerán solas cada hora.' : '') +
+      (r.errores.length ? '<ul style="margin:6px 0 0;padding-left:18px">' + r.errores.slice(0, 12).map((e) => '<li>Fila ' + e.fila + ': ' + esc(e.motivo) + '</li>').join('') + '</ul>' : '') +
+      (r.nuevas ? '<br><a href="#inscripciones" id="hVer">Ver las inscripciones</a>' : '') + '</div></div>';
+    const cont = $('hResultado') || $('hPaso2');
+    cont.innerHTML = html;
+    cont.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const ver = $('hVer'); if (ver) ver.onclick = (e) => { e.preventDefault(); ir('inscripciones', { act: P.actSel }); };
+  }
+
+  // ─────────── ENVÍOS ───────────
+  const ETAPAS = [['generado', 'Por enviar a firmar', 'var(--indigo)'], ['firma', 'En firma', 'var(--magenta)'], ['firmado', 'Firmados', 'var(--marron)'],
+    ['enviado', 'Enviados', 'var(--verde)'], ['revisar', 'Para revisar', 'var(--rojo)'], ['anulado', 'Anulados', '#9aa6b1'], ['', 'Todos', 'var(--azul)']];
+  async function vEnvios(op) {
+    const acts = P.actividades.length ? P.actividades : await actividades();
+    if (op && op.estado !== undefined) P.etapa = op.estado;
+    if (op && op.act) P.filtroCertAct = op.act;
+    const lista = await llamar('api_certificados', { actividad: P.filtroCertAct || '' });
+    const etapa = P.etapa === undefined ? (lista.some((c) => c.estado === 'generado') ? 'generado' : lista.some((c) => c.estado === 'firmado') ? 'firmado' : '') : P.etapa;
+    P.etapa = etapa;
+    const q = (P.buscarCert || '').toLowerCase();
+    const vis = lista.filter((c) => (!etapa || c.estado === etapa) && (!q || (c.nombre + ' ' + c.codigo).toLowerCase().indexOf(q) > -1));
+    const n = (e) => lista.filter((c) => !e || c.estado === e).length;
+    const desc = lista.filter((c) => c.estado === 'enviado' && c.descargado).length;
+    const accion = { generado: ['enviarFirma', 'Enviar a firmar', 'firma'], firmado: ['enviarAlumnado', 'Enviar al alumnado', 'correo'], revisar: ['enviarAlumnado', 'Enviar al alumnado', 'correo'], enviado: ['reenviar', 'Reenviar el correo', 'recargar'] }[etapa];
+    const seleccionable = !!accion;
+    const ayudaEtapa = {
+      generado: 'Revisa los PDF si quieres y pulsa «Enviar a firmar»: el primer firmante recibirá un aviso.',
+      firma: 'Esperando a los firmantes. Cada uno los firma con Autofirma y los sube en «Firmar».',
+      firmado: 'Tienen todas las firmas. Al enviarlos, cada alumno/a recibe un correo privado con un código para descargar su certificado.',
+      enviado: 'El correo solo sirve con su código privado. «Reenviar» manda un código nuevo y anula el anterior.',
+      revisar: 'Necesitan algo antes de enviarse (normalmente, el correo). Corrige los datos y envíalos.'
+    }[etapa] || '';
+    $('vEnvios').innerHTML = '<div class="pn-vista">' + cab('Envíos', '', 'Sigue cada certificado desde que se genera hasta que el alumnado lo descarga.') +
+      '<div class="filtros">' + selectorAct('eAct', acts, P.filtroCertAct || '', '<option value="">Todas las actividades</option>') +
+      '<input type="search" id="eBuscar" placeholder="Buscar por nombre o código" aria-label="Buscar" value="' + esc(P.buscarCert || '') + '"></div>' +
+      '<div class="etapas">' + ETAPAS.map((e) => '<button class="etapa' + (e[0] === etapa ? ' activo' : '') + '" data-etapa="' + e[0] + '" aria-pressed="' + (e[0] === etapa) + '"><span class="n">' + n(e[0]) + '</span><span class="t">' + e[1] +
+        (e[0] === 'enviado' ? ' · ' + desc + ' descargados' : '') + '</span><span class="barra-color" style="background:' + e[2] + '"></span></button>').join('') + '</div>' +
+      (ayudaEtapa ? '<div class="nota">' + ic('info') + '<div>' + ayudaEtapa + '</div></div>' : '') +
+      (vis.length ? '<div class="tabla-env"><table class="tabla"><thead><tr><th>' + (seleccionable ? '<input type="checkbox" id="eTodas" aria-label="Seleccionar todos">' : '') + '</th><th>Código</th><th>Persona</th><th>Actividad</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        vis.map((c) => '<tr data-c="' + c.codigo + '"><td>' + (seleccionable ? '<input type="checkbox" class="sel" aria-label="Seleccionar ' + esc(c.codigo) + '">' : '') + '</td>' +
+          '<td style="white-space:nowrap"><b>' + esc(c.codigo) + '</b></td><td>' + esc(c.nombre) + '<div class="ayuda">' + esc(c.rol) + (c.tieneEmail ? '' : ' · <span style="color:var(--mal)">sin correo</span>') + '</div></td><td>' + esc(c.actividad) + '</td>' +
+          '<td>' + chip(c.estado, c.estado === 'firma' ? (c.firmas + 1) + '/' + c.totalFirmas + ' · ' + c.pendienteDe : c.estado === 'enviado' ? c.enviado : '') +
+            (c.estado === 'enviado' ? '<div class="ayuda">' + (c.descargado ? 'Descargado el ' + esc(c.descargado) : 'Aún sin descargar') + '</div>' : '') + (c.notas ? '<div class="ayuda">' + esc(c.notas) + '</div>' : '') + '</td>' +
+          '<td class="acc">' + (['generado', 'firma', 'firmado', 'enviado', 'revisar'].indexOf(c.estado) > -1 ? '<button class="boton peq" data-a="pdf">' + ic('descargar', 'peq') + 'PDF</button> ' : '') +
+            (c.estado === 'revisar' && c.persona ? '<button class="boton peq" data-a="corregir">Corregir</button> ' : '') +
+            (['generado', 'firma', 'firmado', 'revisar', 'generando'].indexOf(c.estado) > -1 ? '<button class="boton peq" data-a="rehacer">Rehacer</button> ' : '') +
+            (c.estado !== 'anulado' ? '<button class="boton peq peligro" data-a="anular">Anular</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
+        : vacio('certificado', 'Nada en esta etapa', etapa === 'generado' ? 'Genera certificados en «Diseñar y generar».' : '')) +
+      (seleccionable ? '<div class="barra-lote oculto" id="eLote"><span id="eLoteN"></span><span style="margin-left:auto"></span><button class="boton primario" id="eAccion">' + ic(accion[2]) + accion[1] + '</button></div>' : '') + '</div>';
+    const v = $('vEnvios');
+    $('eAct').onchange = () => { P.filtroCertAct = $('eAct').value; vEnvios(); };
+    let tm; $('eBuscar').oninput = () => { clearTimeout(tm); tm = setTimeout(() => { P.buscarCert = $('eBuscar').value; vEnvios().then(() => { const b = $('eBuscar'); b.focus(); b.setSelectionRange(99, 99); }); }, 350); };
+    v.querySelectorAll('[data-etapa]').forEach((b) => { b.onclick = () => { P.etapa = b.dataset.etapa; vEnvios(); }; });
+    const sel = () => [...v.querySelectorAll('.sel:checked')].map((c) => c.closest('tr').dataset.c);
+    const lote = () => { const k = sel().length; if ($('eLote')) { $('eLote').classList.toggle('oculto', !k); $('eLoteN').textContent = k + ' seleccionado(s)'; } };
+    v.querySelectorAll('.sel').forEach((c) => { c.onchange = lote; });
+    if ($('eTodas')) $('eTodas').onchange = () => { v.querySelectorAll('.sel').forEach((c) => { c.checked = $('eTodas').checked; }); lote(); };
+    if ($('eAccion')) $('eAccion').onclick = async () => {
+      const cods = sel();
+      if (accion[0] === 'enviarFirma') {
+        modal('<h2>Enviar a firmar</h2><p class="ayuda">' + cods.length + ' certificado(s) pasarán al primer firmante, que recibirá un correo con el total pendiente.</p>' +
+          '<label class="etq" for="eMsg">Mensaje para quien firma <small>(opcional)</small></label><textarea id="eMsg" rows="3" maxlength="600" placeholder="Son los de las Jornadas de marzo. ¡Gracias!"></textarea>' +
+          '<div class="pie"><button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="eOk">' + ic('enviar') + 'Enviar a firmar</button></div>', (f, cerrar) => {
+          f.querySelector('#eOk').onclick = async () => {
+            try { cargando(true, 'Enviando a firmar…'); const k = await llamar('api_enviarAFirmar', cods, f.querySelector('#eMsg').value); cerrar(); aviso(k + ' certificado(s) enviados a firmar.'); P.etapa = 'firma'; vEnvios(); }
+            catch (e) { aviso(e.message); } finally { cargando(false); }
+          };
+        });
+      } else if (accion[0] === 'enviarAlumnado') {
+        if (!(await preguntar('Enviar al alumnado', 'Se enviará a ' + cods.length + ' persona(s) un correo privado con su código de descarga. El PDF no va adjunto: solo puede descargarlo quien tenga el código.', 'Enviar'))) return;
+        try { cargando(true, 'Enviando correos…'); const r = await llamar('api_enviarAlumnado', cods); aviso(r.enviados + ' enviado(s).' + (r.problemas.length ? ' ' + r.problemas.length + ' con problemas: ' + r.problemas.slice(0, 2).join(' · ') : '')); vEnvios(); }
+        catch (e) { aviso(e.message); } finally { cargando(false); }
+      } else if (accion[0] === 'reenviar') {
+        if (!(await preguntar('Reenviar el correo', 'Cada persona recibirá un código nuevo; el anterior dejará de servir.', 'Reenviar'))) return;
+        let k = 0; cargando(true, 'Reenviando…');
+        for (const c of cods) { try { await llamar('api_reenviar', c); k++; } catch (e) { aviso(c + ': ' + e.message); } }
+        cargando(false); aviso(k + ' reenviado(s).'); vEnvios();
+      }
+    };
+    v.querySelectorAll('[data-a]').forEach((b) => {
+      b.onclick = async () => {
+        const c = b.closest('tr').dataset.c, a = b.dataset.a;
+        const fila = lista.find((x) => x.codigo === c);
+        try {
+          if (a === 'pdf') { cargando(true); const r = await llamar('api_pdf', c); window.descargarArchivo(b64aBlob(r.base64, 'application/pdf'), r.nombre); }
+          if (a === 'corregir') modalCorregir({ persona: fila.persona, nombre: fila.nombre.split(' ')[0], apellidos: fila.nombre.split(' ').slice(1).join(' '), dniOculto: '', emailOculto: '' }, () => vEnvios());
+          if (a === 'rehacer' && await preguntar('¿Rehacer ' + c + '?', 'Se retira el PDF actual y vuelve a «Validada» para generarlo de nuevo con otro código.', 'Rehacer', true)) { await llamar('api_rehacer', c); vEnvios(); }
+          if (a === 'anular' && await preguntar('¿Anular ' + c + '?', 'La verificación pública dirá que no es válido y ya no se podrá descargar.', 'Anular', true)) { await llamar('api_anular', c); vEnvios(); }
+        } catch (e) { aviso(e.message); } finally { cargando(false); }
       };
     });
   }
@@ -529,18 +1001,19 @@
   async function vFirmar() {
     const lista = await llamar('api_certificados', { misFirmas: true });
     const u = P.usuario;
-    $('vFirmar').innerHTML = '<div class="pn-vista">' + cab('Firmar', lista.length ? '<button class="boton primario" id="descZip">⬇ Descargar todos (ZIP)</button><button class="boton" id="mailZip">✉ Enviármelos por correo</button>' : '',
+    $('vFirmar').innerHTML = '<div class="pn-vista">' + cab('Firmar', lista.length ? '<button class="boton primario" id="descZip">' + ic('descargar') + 'Descargar todos (ZIP)</button><button class="boton" id="mailZip">' + ic('correo') + 'Enviármelos por correo</button>' : '',
       'Descarga los certificados, fírmalos con Autofirma (firma visible en tu hueco) y arrástralos aquí. No cambies el nombre de los archivos.') +
-      (!u.firmas.length && u.rol === 'admin' ? '<div class="nota">No figuras como firmante en «Ajustes», pero como administración puedes subir PDF firmados por otra persona.</div>' : '') +
-      '<div class="caja"><h3>' + lista.length + ' certificado(s) esperan tu firma</h3>' +
-      (lista.length ? '<table class="tabla" style="border:0"><tbody>' + lista.map((c) => '<tr><td><b>' + esc(c.nombre) + '</b><div class="ayuda">' + esc(c.actividad) + ' · ' + esc(c.rol) + '</div></td><td>' + esc(c.codigo) + '</td><td>Firma ' + (c.firmas + 1) + ' de ' + c.totalFirmas + '</td></tr>').join('') + '</tbody></table>'
+      (!u.firmas.length && u.rol === 'admin' ? '<div class="nota">' + ic('info') + '<div>No figuras como firmante en «Ajustes», pero como administración puedes subir PDF firmados por otra persona.</div></div>' : '') +
+      '<div class="rejilla r2"><div class="caja"><h2>' + ic('firma') + lista.length + ' certificado(s) esperan tu firma</h2>' +
+      (lista.length ? '<div class="lista-enlaces">' + lista.map((c) => '<div><b>' + esc(c.nombre) + '<div class="ayuda" style="font-weight:600">' + esc(c.actividad) + ' · ' + esc(c.rol) + ' · ' + esc(c.codigo) + '</div></b><span class="chip c-magenta">Firma ' + (c.firmas + 1) + ' de ' + c.totalFirmas + '</span></div>').join('') + '</div>'
         : '<p class="ayuda" style="margin:0">Nada pendiente. Te avisaremos por correo cuando haya más.</p>') + '</div>' +
-      '<div class="soltar" id="zona"><b>Arrastra aquí los PDF firmados</b>o pulsa para elegirlos<input type="file" id="archivos" accept="application/pdf" multiple class="oculto"></div>' +
-      '<div id="resultados" style="margin-top:14px"></div></div>';
+      '<div><div class="soltar" id="zona" role="button" tabindex="0" aria-label="Subir los PDF firmados">' + ic('subir') + '<b>Arrastra aquí los PDF firmados</b>o pulsa para elegirlos<input type="file" id="archivos" accept="application/pdf" multiple class="oculto"></div>' +
+      '<div id="resultados" style="margin-top:14px"></div></div></div></div>';
     if ($('descZip')) $('descZip').onclick = () => descargarZip(lista);
     if ($('mailZip')) $('mailZip').onclick = async () => { try { cargando(true, 'Preparando el correo…'); const n = await llamar('api_enviarmeZip'); aviso('Enviado: ' + n + ' PDF en un ZIP a tu correo.'); } catch (e) { aviso(e.message); } finally { cargando(false); } };
     const zona = $('zona');
     zona.onclick = () => $('archivos').click();
+    zona.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('archivos').click(); } };
     $('archivos').onchange = (e) => subirFirmados([...e.target.files]);
     zona.ondragover = (e) => { e.preventDefault(); zona.classList.add('encima'); };
     zona.ondragleave = () => zona.classList.remove('encima');
@@ -551,103 +1024,124 @@
       cargando(true, 'Preparando el ZIP…');
       const zip = new JSZip();
       for (let k = 0; k < lista.length; k++) {
-        $('pnCargando').textContent = 'Preparando el ZIP… ' + (k + 1) + ' de ' + lista.length;
+        $('pnCargandoTxt').textContent = 'Preparando el ZIP… ' + (k + 1) + ' de ' + lista.length;
         const r = await llamar('api_pdf', lista[k].codigo);
         zip.file(r.nombre, r.base64, { base64: true });
       }
-      const blob = await zip.generateAsync({ type: 'blob' });
-      window.descargarArchivo(blob, 'Certificados para firmar.zip');
+      window.descargarArchivo(await zip.generateAsync({ type: 'blob' }), 'Certificados para firmar.zip');
       aviso('Descargado. Si no ves el archivo, usa «Enviármelos por correo».');
     } catch (e) { aviso(e.message); } finally { cargando(false); }
   }
   async function subirFirmados(archivos) {
     if (!archivos.length) return;
     const res = $('resultados');
-    res.innerHTML = '<div class="caja"><h3>Subiendo ' + archivos.length + ' archivo(s)…</h3><div id="resLista"></div></div>';
+    res.innerHTML = '<div class="caja"><h3 id="resTitulo">Subiendo ' + archivos.length + ' archivo(s)…</h3><div id="resLista" aria-live="polite"></div></div>';
     let ok = 0;
     for (const f of archivos) {
-      const linea = document.createElement('div'); linea.className = 'resultado'; linea.textContent = f.name + '…'; $('resLista').appendChild(linea);
+      const linea = document.createElement('div'); linea.className = 'resultado'; linea.innerHTML = '<div class="girando" style="width:16px;height:16px;border-width:2px"></div><span>' + esc(f.name) + '…</span>'; $('resLista').appendChild(linea);
       try {
         const r = await llamar('api_subirFirmado', f.name, aBase64(await f.arrayBuffer()));
-        if (r.ok) { ok++; linea.className = 'resultado ok'; linea.textContent = r.codigo + (r.enviado ? ' · enviado al alumno/a' : ' · pasa a ' + r.siguiente); }
-        else { linea.className = 'resultado ko'; linea.textContent = f.name + ': ' + r.motivo; }
-      } catch (e) { linea.className = 'resultado ko'; linea.textContent = f.name + ': ' + e.message; }
+        if (r.ok) { ok++; linea.className = 'resultado ok'; linea.innerHTML = ic('ok', 'peq') + '<span>' + esc(r.codigo) + (r.enviado ? ' · firmado y enviado al alumno/a' : r.firmado ? ' · firmas completas' : ' · pasa a ' + esc(r.siguiente)) + '</span>'; }
+        else { linea.className = 'resultado ko'; linea.innerHTML = ic('cerrar', 'peq') + '<span>' + esc(f.name) + ': ' + esc(r.motivo) + '</span>'; }
+      } catch (e) { linea.className = 'resultado ko'; linea.innerHTML = ic('cerrar', 'peq') + '<span>' + esc(f.name) + ': ' + esc(e.message) + '</span>'; }
     }
     try { await llamar('api_finSubida'); } catch (e) { }
-    res.querySelector('h3').textContent = 'Hecho: ' + ok + ' de ' + archivos.length + ' correcto(s).';
+    $('resTitulo').textContent = 'Hecho: ' + ok + ' de ' + archivos.length + ' correcto(s).';
     setTimeout(() => vFirmar().then(() => { $('resultados').replaceWith(res); }), 600);
   }
 
-  // ─────────── CERTIFICADOS ───────────
-  async function vCertificados() {
-    const acts = P.actividades.length ? P.actividades : await actividades();
-    const lista = await llamar('api_certificados', { actividad: P.filtroCertAct || '' });
-    const est = P.filtroCertEst || '';
-    const q = (P.buscarCert || '').toLowerCase();
-    const vis = lista.filter((c) => (!est || c.estado === est) && (!q || (c.nombre + ' ' + c.codigo).toLowerCase().indexOf(q) > -1));
-    $('vCertificados').innerHTML = '<div class="pn-vista">' + cab('Certificados', '', 'Todos los certificados emitidos y en qué punto está cada uno.') +
-      '<div class="filtros"><select id="fAct"><option value="">Todas las actividades</option>' + acts.map((a) => '<option value="' + a.id + '"' + (a.id === P.filtroCertAct ? ' selected' : '') + '>' + esc(a.nombre) + '</option>').join('') + '</select>' +
-      '<select id="fEst"><option value="">Todos los estados</option>' + ['generando', 'firma', 'enviado', 'revisar', 'anulado'].map((e) => '<option value="' + e + '"' + (e === est ? ' selected' : '') + '>' + ESTADOS[e] + '</option>').join('') + '</select>' +
-      '<input type="text" id="fBuscar" placeholder="Buscar nombre o código" value="' + esc(P.buscarCert || '') + '"></div>' +
-      (vis.length ? '<table class="tabla"><thead><tr><th>Código</th><th>Persona</th><th>Actividad</th><th>Estado</th><th></th></tr></thead><tbody>' +
-        vis.map((c) => '<tr data-c="' + c.codigo + '"><td><b>' + esc(c.codigo) + '</b></td><td>' + esc(c.nombre) + '<div class="ayuda">' + esc(c.rol) + '</div></td><td>' + esc(c.actividad) + '</td>' +
-          '<td>' + chip(c.estado, c.estado === 'firma' ? (c.firmas + 1) + '/' + c.totalFirmas + ' · ' + c.pendienteDe : c.estado === 'enviado' ? c.enviado : '') + (c.notas ? '<div class="ayuda">' + esc(c.notas) + '</div>' : '') + '</td>' +
-          '<td class="acc">' + (['firma', 'enviado', 'revisar'].indexOf(c.estado) > -1 ? '<button class="boton peq" data-a="pdf">PDF</button> ' : '') +
-          (c.estado === 'enviado' ? '<button class="boton peq" data-a="reenviar">Reenviar</button> ' : '') +
-          (['firma', 'revisar', 'generando'].indexOf(c.estado) > -1 ? '<button class="boton peq" data-a="rehacer">Rehacer</button> ' : '') +
-          (c.estado !== 'anulado' ? '<button class="boton peq peligro" data-a="anular">Anular</button>' : '') + '</td></tr>').join('') + '</tbody></table>'
-        : '<div class="vacio">No hay certificados con este filtro.</div>') + '</div>';
-    $('fAct').onchange = () => { P.filtroCertAct = $('fAct').value; vCertificados(); };
-    $('fEst').onchange = () => { P.filtroCertEst = $('fEst').value; vCertificados(); };
-    let tm; $('fBuscar').oninput = () => { clearTimeout(tm); tm = setTimeout(() => { P.buscarCert = $('fBuscar').value; vCertificados().then(() => { $('fBuscar').focus(); $('fBuscar').setSelectionRange(99, 99); }); }, 350); };
-    $('vCertificados').querySelectorAll('[data-a]').forEach((b) => {
-      b.onclick = async () => {
-        const c = b.closest('tr').dataset.c, a = b.dataset.a;
-        try {
-          if (a === 'pdf') { cargando(true); const r = await llamar('api_pdf', c); window.descargarArchivo(b64aBlob(r.base64, 'application/pdf'), r.nombre); }
-          if (a === 'reenviar' && confirm('¿Reenviar el certificado ' + c + ' por correo?')) { await llamar('api_reenviar', c); aviso('Reenviado.'); }
-          if (a === 'rehacer' && confirm('¿Rehacer ' + c + '? Se retira el PDF actual y vuelve a «Validada» para generarlo de nuevo con otro código.')) { await llamar('api_rehacer', c); vCertificados(); }
-          if (a === 'anular' && confirm('¿Anular ' + c + '? La verificación pública dirá que no es válido.')) { await llamar('api_anular', c); vCertificados(); }
-        } catch (e) { aviso(e.message); } finally { cargando(false); }
-      };
-    });
+  // ─────────── VALORACIONES E INFORMES ───────────
+  function barras(filas, total) {
+    const max = Math.max(1, ...filas.map((f) => f[1]));
+    return '<div class="barras">' + filas.map((f) => '<div class="fila-b"><span>' + esc(f[0]) + '</span><span class="pista-b"><i style="width:' + Math.round(f[1] / max * 100) + '%' + (f[2] ? ';background:' + f[2] : '') + '"></i></span><span>' + f[1] + '</span></div>').join('') + '</div>';
   }
-
-  // ─────────── VALORACIONES ───────────
-  async function vValoraciones() {
+  function markdown(t) {
+    const lineas = esc(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').split('\n');
+    let html = '', enLista = false;
+    lineas.forEach((l) => {
+      const s = l.trim();
+      if (/^[-*•] /.test(s)) { if (!enLista) { html += '<ul>'; enLista = true; } html += '<li>' + s.replace(/^[-*•] /, '') + '</li>'; return; }
+      if (enLista) { html += '</ul>'; enLista = false; }
+      if (/^#{1,4} /.test(s)) html += '<h3>' + s.replace(/^#{1,4} /, '') + '</h3>';
+      else if (s) html += '<p>' + s + '</p>';
+    });
+    return html + (enLista ? '</ul>' : '');
+  }
+  async function vValoraciones(op) {
     const acts = P.actividades.length ? P.actividades : await actividades();
-    const sel = P.actVal || (acts.find((a) => a.nValoraciones) || acts[0] || {}).id || '';
-    const lista = sel ? await llamar('api_valoraciones', sel) : [];
-    const media = lista.length ? lista.reduce((s, v) => s + v.valor, 0) / lista.length : 0;
-    const dist = [5, 4, 3, 2, 1].map((n) => lista.filter((v) => v.valor === n).length);
-    const max = Math.max(1, ...dist);
-    const coment = lista.filter((v) => v.comentario);
-    $('vValoraciones').innerHTML = '<div class="pn-vista">' + cab('Valoraciones', coment.some((v) => v.citable) ? '<button class="boton" id="copCit">Copiar citables para el boletín</button>' : '',
-      'Son anónimas: no se guardan junto al nombre de quien las escribe.') +
-      '<div class="filtros"><select id="vSel">' + acts.map((a) => '<option value="' + a.id + '"' + (a.id === sel ? ' selected' : '') + '>' + esc(a.nombre) + '</option>').join('') + '</select></div>' +
-      (lista.length ? '<div class="fila2"><div class="caja"><h3>Media</h3><div style="font-size:40px;font-weight:700;color:var(--verde-osc)">' + media.toFixed(1).replace('.', ',') + '</div><div class="ayuda">' + lista.length + ' valoración(es) de 1 a 5</div></div>' +
-        '<div class="caja barras"><h3>Reparto</h3>' + dist.map((d, i) => '<div><span style="width:24px">' + (5 - i) + '★</span><i style="width:' + Math.round(d / max * 180) + 'px"></i><span class="ayuda">' + d + '</span></div>').join('') + '</div></div>' +
-        '<div class="caja"><h3>Comentarios (' + coment.length + ')</h3>' + (coment.length ? coment.map((v) => '<div class="cita">' + esc(v.comentario) + '<small>' + '★'.repeat(v.valor) + ' · ' + esc(v.fecha) + (v.citable ? ' · <b>citable en el boletín</b>' : '') + '</small></div>').join('') : '<p class="ayuda">Sin comentarios.</p>') + '</div>'
-        : '<div class="vacio">Aún no hay valoraciones para esta actividad.</div>') + '</div>';
+    if (op && op.act) P.actVal = op.act;
+    const sel = P.actVal && acts.some((a) => a.id === P.actVal) ? P.actVal : (acts.find((a) => a.nValoraciones) || acts[0] || {}).id || '';
+    P.actVal = sel;
+    if (!sel) { $('vValoraciones').innerHTML = '<div class="pn-vista">' + cab('Valoraciones e informes') + vacio('grafico', 'Aún no hay actividades') + '</div>'; return; }
+    const [inf, lista] = await Promise.all([llamar('api_informe', sel), llamar('api_valoraciones', sel)]);
+    const e = inf.estadisticas;
+    const coment = lista.filter((v) => v.comentario), mejoras = lista.filter((v) => v.mejora);
+    const nEval = e.origen['evaluación'] || 0;
+    const part = e.inscritos && nEval ? Math.min(100, Math.round(nEval / e.inscritos * 100)) : null;
+    const COLORES = ['#E33229', '#F29100', '#C9B400', '#6DB33F', '#2BA962'];
+    $('vValoraciones').innerHTML = '<div class="pn-vista">' + cab('Valoraciones e informes',
+      (inf.ia.configurada ? '<button class="boton ia" id="vIa">' + ic('ia') + (inf.guardado ? 'Rehacer el informe con IA' : 'Redactar informe con IA') + '</button>' : '') +
+      (lista.length ? '<button class="boton" id="vDescargar">' + ic('descargar') + 'Descargar informe</button>' : '') +
+      (coment.some((v) => v.citable) ? '<button class="boton" id="vCitas">' + ic('copiar') + 'Copiar citas para el boletín</button>' : ''),
+      'Las valoraciones son anónimas: nunca se guardan junto al nombre de quien responde.' + (inf.ia.configurada ? '' : ' Para redactar informes con IA, administración debe activarla en «Ajustes».')) +
+      '<div class="filtros">' + selectorAct('vSel', acts, sel) + '<a href="#formularios" class="boton fantasma" id="vForm">' + ic('formulario') + 'Editar la evaluación</a></div>' +
+      (!lista.length ? vacio('estrella', 'Aún no hay valoraciones', 'Abre la evaluación de la actividad y comparte el enlace (también llega en el correo del certificado).') :
+        '<div class="tiles">' +
+          '<div class="tile t-azul" style="cursor:default"><span class="icono-tile">' + ic('personas') + '</span><span class="n">' + e.n + '</span><span class="t">Respuestas' + (part != null ? ' · evaluación respondida por el ' + part + ' %' : '') + '</span></div>' +
+          '<div class="tile t-naranja" style="cursor:default"><span class="icono-tile">' + ic('estrella') + '</span><span class="n">' + (e.media == null ? '—' : num(e.media.toFixed(1))) + '</span><span class="t">Valoración general (sobre 5)</span></div>' +
+          '<div class="tile t-verde" style="cursor:default"><span class="icono-tile">' + ic('formulario') + '</span><span class="n">' + e.comentarios + '</span><span class="t">Comentarios</span></div>' +
+          '<div class="tile t-indigo" style="cursor:default"><span class="icono-tile">' + ic('rayo') + '</span><span class="n">' + e.mejoras + '</span><span class="t">Propuestas de mejora</span></div></div>' +
+        (inf.guardado ? '<div class="caja informe"><h2>' + ic('ia') + 'Informe<span class="acciones"><span class="ayuda">' + esc(inf.guardado.fecha) + ' · ' + inf.guardado.n + ' respuestas' + (inf.guardado.conComentarios ? '' : ' · sin comentarios') + '</span>' +
+          '<button class="boton peq" id="vCopiarInf">' + ic('copiar', 'peq') + 'Copiar</button></span></h2>' + markdown(inf.guardado.texto) +
+          '<p class="ayuda" style="margin-top:14px">Redactado con IA a partir de los datos y de comentarios anonimizados. Revísalo antes de compartirlo.</p></div>' : '') +
+        '<div class="rejilla r2"><div class="caja"><h3>Valoración general</h3>' + barras([5, 4, 3, 2, 1].map((n) => [n + ' de 5', e.dist[n - 1], COLORES[n - 1]])) + '</div>' +
+          e.preguntas.filter((q) => q.id !== 'general' && (q.tipo === 'escala' || q.opciones)).map((q) => '<div class="caja"><h3>' + esc(q.texto) + '</h3>' +
+            (q.tipo === 'escala' ? '<p style="margin:0 0 6px"><span class="grande" style="font-size:30px">' + (q.media == null ? '—' : num(q.media)) + '</span> <span class="ayuda">media · ' + q.n + ' respuestas</span></p>' + barras([5, 4, 3, 2, 1].map((n) => [n + ' de 5', q.dist[n - 1], COLORES[n - 1]]))
+              : barras(q.opciones.map((o) => [o.o, o.n]))) + '</div>').join('') + '</div>' +
+        '<div class="rejilla r2"><div class="caja"><h3>' + ic('formulario') + 'Lo que se llevan (' + coment.length + ')</h3>' + (coment.length ? coment.map((v) => '<div class="cita">' + esc(v.comentario) + '<small>' + (v.valor ? v.valor + ' de 5 · ' : '') + esc(v.fecha) + (v.citable ? ' · <b>se puede citar</b>' : '') + '</small></div>').join('') : '<p class="ayuda">Sin comentarios.</p>') + '</div>' +
+          '<div class="caja"><h3>' + ic('rayo') + 'Propuestas de mejora (' + mejoras.length + ')</h3>' + (mejoras.length ? mejoras.map((v) => '<div class="cita mejora">' + esc(v.mejora) + '<small>' + esc(v.fecha) + '</small></div>').join('') : '<p class="ayuda">Sin propuestas.</p>') + '</div></div>') + '</div>';
     $('vSel').onchange = () => { P.actVal = $('vSel').value; vValoraciones(); };
-    if ($('copCit')) $('copCit').onclick = () => copiar(coment.filter((v) => v.citable).map((v) => '«' + v.comentario + '»').join('\n\n'));
+    $('vForm').onclick = (ev) => { ev.preventDefault(); ir('formularios', { act: sel, tipo: 'evaluacion' }); };
+    if ($('vCitas')) $('vCitas').onclick = () => copiar(coment.filter((v) => v.citable).map((v) => '«' + v.comentario + '»').join('\n\n'));
+    if ($('vCopiarInf')) $('vCopiarInf').onclick = () => copiar(inf.guardado.texto);
+    if ($('vIa')) $('vIa').onclick = async () => {
+      const ok = await preguntar('Redactar el informe con IA', 'Se enviarán a Groq las estadísticas' + (inf.ia.comentarios ? ' y los comentarios <b>anonimizados</b> (sin correos, DNI, teléfonos ni nombres de las personas inscritas)' : '') + '. Tarda unos segundos.', 'Redactar');
+      if (!ok) return;
+      try { cargando(true, 'La IA está analizando las valoraciones…'); await llamar('api_iaInforme', sel); vValoraciones(); } catch (x) { aviso(x.message); } finally { cargando(false); }
+    };
+    if ($('vDescargar')) $('vDescargar').onclick = () => {
+      const act = inf.actividad;
+      const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe · ' + esc(act.nombre) + '</title><style>body{font-family:Arial,sans-serif;max-width:780px;margin:30px auto;color:#1B2733;line-height:1.6;padding:0 16px}h1{font-size:24px;margin:0}h3{color:#0E5680}.franja{display:flex;height:6px;margin-bottom:20px}.franja i{flex:1}.dato{display:inline-block;margin:0 24px 10px 0}.dato b{font-size:26px;display:block}blockquote{border-left:3px solid #F29100;margin:8px 0;padding:4px 12px;background:#fffcf6}</style></head><body>' +
+        '<div class="franja">' + ['#136EA1', '#E33229', '#F29100', '#2BA962', '#E3007C', '#33228A', '#925F2F'].map((c) => '<i style="background:' + c + '"></i>').join('') + '</div>' +
+        '<h1>Informe de valoraciones</h1><p>' + esc(act.nombre) + (act.fechas ? ' · ' + esc(act.fechas) : '') + '<br>Servicio de Pastoral y Compromiso Solidario · C.U. «Sagrada Familia» · ' + new Date().toLocaleDateString('es-ES') + '</p>' +
+        '<div class="dato"><b>' + e.n + '</b>respuestas</div><div class="dato"><b>' + (e.media == null ? '—' : num(e.media.toFixed(1))) + '</b>valoración media</div><div class="dato"><b>' + (part == null ? '—' : part + ' %') + '</b>participación</div>' +
+        '<h3>Reparto de la valoración general</h3><p>' + [5, 4, 3, 2, 1].map((n) => n + ' de 5: ' + e.dist[n - 1]).join(' · ') + '</p>' +
+        e.preguntas.filter((q) => q.id !== 'general' && (q.tipo === 'escala' || q.opciones)).map((q) => '<h3>' + esc(q.texto) + '</h3><p>' + (q.tipo === 'escala' ? 'Media: ' + (q.media == null ? '—' : num(q.media)) : q.opciones.map((o) => esc(o.o) + ': ' + o.n).join(' · ')) + '</p>').join('') +
+        (inf.guardado ? '<hr>' + markdown(inf.guardado.texto) : '') +
+        (coment.length ? '<h3>Lo que se llevan</h3>' + coment.map((v) => '<blockquote>' + esc(v.comentario) + '</blockquote>').join('') : '') +
+        (mejoras.length ? '<h3>Propuestas de mejora</h3><ul>' + mejoras.map((v) => '<li>' + esc(v.mejora) + '</li>').join('') + '</ul>' : '') + '</body></html>';
+      window.descargarArchivo(new Blob([html], { type: 'text/html' }), 'Informe ' + act.nombre.replace(/[^\wáéíóúñü ]+/gi, ' ').trim().slice(0, 60) + '.html');
+      aviso('Descargado. Ábrelo en el navegador y usa «Imprimir › Guardar como PDF» si lo quieres en PDF.');
+    };
   }
 
   // ─────────── EQUIPO ───────────
   async function vEquipo() {
     const lista = await llamar('api_equipo');
     const roles = { admin: 'Administración', coordinacion: 'Coordinación', firmante: 'Firmante' };
-    $('vEquipo').innerHTML = '<div class="pn-vista">' + cab('Equipo', '<button class="boton primario" id="nuevoM">＋ Añadir persona</button>',
+    $('vEquipo').innerHTML = '<div class="pn-vista">' + cab('Equipo', '<button class="boton primario" id="nuevoM">' + ic('mas') + 'Añadir persona</button>',
       'Quién puede entrar y qué puede hacer. Cada persona entra con un código que recibe en su correo.') +
-      '<div class="nota"><b>Administración:</b> todo, incluido el equipo y el registro. <b>Coordinación:</b> actividades, inscripciones, diseño, generación y certificados. <b>Firmante:</b> solo firmar los certificados que le tocan.</div>' +
-      '<table class="tabla"><thead><tr><th>Persona</th><th>Papel</th><th>Activa</th><th></th></tr></thead><tbody>' +
-      lista.map((m) => '<tr data-e="' + esc(m.email) + '"><td><b>' + esc(m.nombre) + '</b><div class="ayuda">' + esc(m.email) + '</div></td><td>' + esc(m.rolNombre) + '</td><td>' + (m.activo ? 'Sí' : 'No') + '</td><td class="acc"><button class="boton peq">Editar</button></td></tr>').join('') +
-      '</tbody></table></div>';
-    const editar = (m) => modal('<h3>' + (m.email ? 'Editar persona' : 'Añadir persona') + '</h3>' +
-      '<label>Correo</label><input type="email" id="eEmail" value="' + esc(m.email || '') + '"' + (m.email ? ' readonly' : '') + '>' +
-      '<label>Nombre</label><input type="text" id="eNombre" value="' + esc(m.nombre || '') + '">' +
-      '<label>Papel</label><select id="eRol">' + Object.keys(roles).map((r) => '<option value="' + r + '"' + (r === (m.rol || 'coordinacion') ? ' selected' : '') + '>' + roles[r] + '</option>').join('') + '</select>' +
-      '<label style="display:flex;gap:10px;align-items:center;margin-top:16px"><span class="pn-switch"><input type="checkbox" id="eActivo"' + (m.activo !== false ? ' checked' : '') + '><span></span></span> Puede entrar</label>' +
+      '<div class="rejilla r3" style="margin-bottom:16px"><div class="caja" style="margin:0"><h3>' + ic('escudo') + 'Administración</h3><p class="ayuda" style="margin:0">Todo, incluidos el equipo, la IA y el registro.</p></div>' +
+      '<div class="caja" style="margin:0"><h3>' + ic('calendario') + 'Coordinación</h3><p class="ayuda" style="margin:0">Actividades, formularios, inscripciones, diseño, envíos e informes.</p></div>' +
+      '<div class="caja" style="margin:0"><h3>' + ic('firma') + 'Firmante</h3><p class="ayuda" style="margin:0">Solo firmar los certificados que le tocan.</p></div></div>' +
+      '<div class="tabla-env"><table class="tabla"><thead><tr><th>Persona</th><th>Papel</th><th>Estado</th><th></th></tr></thead><tbody>' +
+      lista.map((m) => '<tr data-e="' + esc(m.email) + '"><td><b>' + esc(m.nombre) + '</b><div class="ayuda">' + esc(m.email) + '</div></td><td>' + esc(m.rolNombre) + '</td><td>' + (m.activo ? '<span class="chip c-verde">Activa</span>' : '<span class="chip c-gris">Sin acceso</span>') + '</td><td class="acc"><button class="boton peq">' + ic('lapiz', 'peq') + 'Editar</button></td></tr>').join('') +
+      '</tbody></table></div></div>';
+    const editar = (m) => modal('<h2>' + (m.email ? 'Editar persona' : 'Añadir persona') + '</h2>' +
+      '<label class="etq" for="eEmail">Correo</label><input type="email" id="eEmail" value="' + esc(m.email || '') + '"' + (m.email ? ' readonly' : '') + '>' +
+      '<label class="etq" for="eNombre">Nombre</label><input type="text" id="eNombre" value="' + esc(m.nombre || '') + '">' +
+      '<label class="etq" for="eRol">Papel</label><select id="eRol">' + Object.keys(roles).map((r) => '<option value="' + r + '"' + (r === (m.rol || 'coordinacion') ? ' selected' : '') + '>' + roles[r] + '</option>').join('') + '</select>' +
+      '<div style="margin-top:12px">' + interruptor('eActivo', m.activo !== false, 'Puede entrar') + '</div>' +
       (m.email ? '' : '<p class="ayuda">Le llegará un correo de bienvenida con el enlace a la aplicación.</p>') +
       '<div class="pie"><button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="eGuardar">Guardar</button></div>', (f, cerrar) => {
       f.querySelector('#eGuardar').onclick = async () => {
@@ -665,23 +1159,30 @@
     const admin = P.usuario.rol === 'admin';
     const equipo = admin ? await llamar('api_equipo') : [];
     const opcionesEmail = (sel) => '<option value="">— sin asignar —</option>' + equipo.filter((m) => m.activo).map((m) => '<option value="' + esc(m.email) + '"' + (m.email === sel ? ' selected' : '') + '>' + esc(m.nombre) + ' · ' + esc(m.email) + '</option>').join('');
-    const filaF = (f, i) => '<div class="caja firm" style="padding:14px 16px"><div class="fila3">' +
-      '<div><label>Firma ' + (i + 1) + ' · cargo</label><input type="text" class="fCargo" value="' + esc(f.cargo) + '"' + (admin ? '' : ' readonly') + '></div>' +
-      '<div><label>Nombre que sale en el certificado</label><input type="text" class="fNombre" value="' + esc(f.nombre) + '"' + (admin ? '' : ' readonly') + '></div>' +
-      '<div><label>Quién firma (persona del equipo)</label>' + (admin ? '<select class="fEmail">' + opcionesEmail(f.email) + '</select>' : '<input type="text" readonly value="' + esc(f.email || '—') + '">') + '</div></div>' +
-      (admin ? '<div style="text-align:right;margin-top:6px"><button class="boton peq peligro quitarF">Quitar</button></div>' : '') + '</div>';
+    const filaF = (f, i) => '<div class="preg firm"><div class="preg-cab"><span class="n">' + (i + 1) + '</span><b>Firma ' + (i + 1) + '</b>' + (admin ? '<span class="der"><button class="boton peq peligro quitarF">' + ic('papelera', 'peq') + 'Quitar</button></span>' : '') + '</div><div class="fila3">' +
+      '<div><label class="etq">Cargo</label><input type="text" class="fCargo" value="' + esc(f.cargo) + '"' + (admin ? '' : ' readonly') + '></div>' +
+      '<div><label class="etq">Nombre en el certificado</label><input type="text" class="fNombre" value="' + esc(f.nombre) + '"' + (admin ? '' : ' readonly') + '></div>' +
+      '<div><label class="etq">Quién firma <small>(del equipo)</small></label>' + (admin ? '<select class="fEmail">' + opcionesEmail(f.email) + '</select>' : '<input type="text" readonly value="' + esc(f.email || '—') + '">') + '</div></div></div>';
+    const ia = a.ia;
     $('vAjustes').innerHTML = '<div class="pn-vista">' + cab('Ajustes') +
-      '<h3 style="margin:6px 0 10px">Firmantes, en orden de firma</h3>' +
-      '<p class="ayuda" style="margin:-4px 0 12px">Cada certificado pasa por estas personas en este orden. Quien firma tiene que estar en «Equipo» (con el papel «Firmante» o superior).</p>' +
+      '<div class="caja"><h2>' + ic('firma') + 'Firmantes, en orden de firma</h2>' +
+      '<p class="ayuda" style="margin:-4px 0 12px">Cada certificado pasa por estas personas en este orden. Quien firma tiene que estar en «Equipo».</p>' +
       '<div id="listaF">' + a.firmantes.map(filaF).join('') + '</div>' +
-      (admin ? '<div style="display:flex;gap:8px"><button class="boton" id="masF">＋ Añadir firmante</button><button class="boton primario" id="guardarF">Guardar firmantes</button></div>' : '') +
-      '<h3 style="margin:28px 0 10px">Enlaces</h3><div class="caja">' +
-      '<p style="margin:0 0 6px"><b>Panel del equipo:</b> <a href="' + esc(a.urlApp) + '" target="_blank">' + esc(a.urlApp) + '</a></p>' +
-      '<p style="margin:0 0 6px"><b>Inscripción del alumnado:</b> <a href="' + esc(a.urlApp) + '?p=inscripcion" target="_blank">' + esc(a.urlApp) + '?p=inscripcion</a></p>' +
-      '<p style="margin:0"><b>Verificación pública:</b> <a href="' + esc(a.urlApp) + '?p=verificar" target="_blank">' + esc(a.urlApp) + '?p=verificar</a></p></div>' +
-      (admin ? '<h3 style="margin:28px 0 10px">Privacidad · cierre de curso</h3><div class="caja"><p class="ayuda" style="margin-top:0">Sustituye los nombres por iniciales, borra de la bóveda a quien no tenga actividad en cursos posteriores y retira los PDF de ese curso. La verificación sigue funcionando. No se puede deshacer.</p>' +
-        '<div style="display:flex;gap:8px;max-width:420px"><input type="text" id="cursoAnon" placeholder="2025-26"><button class="boton peligro" id="anonimizar">Anonimizar curso</button></div></div>' : '') +
-      '<p class="ayuda" style="margin-top:24px">Versión ' + esc(a.version) + ' · <a href="' + esc(a.repo) + '" target="_blank">código fuente</a></p></div>';
+      (admin ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="boton" id="masF">' + ic('mas') + 'Añadir firmante</button><button class="boton primario" id="guardarF">Guardar firmantes</button></div>' : '') + '</div>' +
+      '<div class="caja"><h2>' + ic('ia') + 'Inteligencia artificial (Groq)<span class="acciones">' + (ia.configurada ? '<span class="chip c-verde">' + ic('ok', 'peq') + 'Activada · clave ' + esc(ia.terminacion) + '</span>' : '<span class="chip c-gris">Sin activar</span>') + '</span></h2>' +
+        '<p class="ayuda" style="margin-top:-4px">Redacta el texto de los certificados, propone formularios y escribe los informes de valoraciones. La clave se guarda cifrada en las propiedades privadas del script: no se muestra, no va al navegador y no está en el código.</p>' +
+        (admin ? '<div class="fila2"><div><label class="etq" for="iaClave">' + (ia.configurada ? 'Cambiar la clave' : 'Clave de la API de Groq') + '</label><input type="password" id="iaClave" autocomplete="off" placeholder="gsk_…"></div>' +
+          '<div><label class="etq" for="iaModelo">Modelo</label><input type="text" id="iaModelo" value="' + esc(ia.modelo) + '"></div></div>' +
+          '<div style="margin-top:10px">' + interruptor('iaComent', ia.comentarios, 'Incluir los comentarios del alumnado (anonimizados) en los informes') + '</div>' +
+          '<div class="aviso" style="margin-top:10px">' + ic('aviso') + '<div>Groq es un proveedor de EE. UU. Antes de enviar los comentarios se quitan correos, DNI, teléfonos y los nombres de las personas inscritas. Conviene que el Delegado de Protección de Datos valide este uso; puedes desactivar el envío de comentarios con el interruptor.</div></div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="boton primario" id="iaGuardar">' + ic('llave') + 'Guardar</button>' + (ia.configurada ? '<button class="boton peligro" id="iaBorrar">Borrar la clave</button>' : '') + '</div>'
+          : '<p class="ayuda" style="margin:0">Solo administración puede cambiar estos ajustes.</p>') + '</div>' +
+      '<div class="caja"><h2>' + ic('enlace') + 'Enlaces</h2><div class="lista-enlaces">' + enlaceFila('Panel del equipo', a.urlApp) + enlaceFila('Inscripción general (todas las abiertas)', a.urlApp + '?p=inscripcion') + enlaceFila('Verificación pública', a.urlApp + '?p=verificar') + '</div>' +
+        '<p class="ayuda" style="margin:10px 0 0">Correos que Google te deja enviar hoy: <b>' + a.cuotaCorreo + '</b>.</p></div>' +
+      (admin ? '<div class="caja"><h2>' + ic('candado') + 'Privacidad · cierre de curso</h2><p class="ayuda" style="margin-top:0">Sustituye los nombres por iniciales, borra de la bóveda a quien no tenga actividad en cursos posteriores (y sus respuestas), anula los códigos de descarga y retira los PDF de ese curso. La verificación sigue funcionando. No se puede deshacer.</p>' +
+        '<div class="enlace-copia" style="max-width:440px"><input type="text" id="cursoAnon" placeholder="2025-26" aria-label="Curso"><button class="boton peligro" id="anonimizar">Anonimizar curso</button></div></div>' : '') +
+      '<p class="ayuda" style="margin-top:24px">Versión ' + esc(a.version) + ' · <a href="' + esc(a.repo) + '" target="_blank" rel="noopener">código fuente</a></p></div>';
+    enlazarEnlaces($('vAjustes'));
     if (!admin) return;
     const enlazarQuitar = () => $('listaF').querySelectorAll('.quitarF').forEach((b) => { b.onclick = () => b.closest('.firm').remove(); });
     enlazarQuitar();
@@ -690,9 +1191,14 @@
       const lista = [...$('listaF').querySelectorAll('.firm')].map((d) => ({ cargo: d.querySelector('.fCargo').value, nombre: d.querySelector('.fNombre').value, email: d.querySelector('.fEmail').value }));
       try { await llamar('api_guardarFirmantes', lista); aviso('Firmantes guardados.'); const u = await llamar('api_yo'); P.usuario = u; pintarMenu({}); vAjustes(); } catch (e) { aviso(e.message); }
     };
+    $('iaGuardar').onclick = async () => {
+      try { cargando(true, 'Comprobando con Groq…'); await llamar('api_iaGuardar', { clave: $('iaClave').value.trim(), modelo: $('iaModelo').value.trim(), comentarios: $('iaComent').checked }); $('iaClave').value = ''; aviso('Ajustes de IA guardados.'); vAjustes(); }
+      catch (e) { aviso(e.message); } finally { cargando(false); }
+    };
+    if ($('iaBorrar')) $('iaBorrar').onclick = async () => { if (!(await preguntar('¿Borrar la clave de Groq?', 'La IA dejará de estar disponible hasta que guardes otra.', 'Borrar', true))) return; try { await llamar('api_iaGuardar', { borrar: true }); vAjustes(); } catch (e) { aviso(e.message); } };
     $('anonimizar').onclick = async () => {
       const c = $('cursoAnon').value.trim();
-      if (!confirm('¿Anonimizar el curso ' + c + ' y anteriores? No se puede deshacer.')) return;
+      if (!(await preguntar('¿Anonimizar el curso ' + esc(c) + '?', 'Se aplicará a ese curso y a los anteriores. No se puede deshacer.', 'Anonimizar', true))) return;
       try { aviso(await llamar('api_anonimizar', c)); } catch (e) { aviso(e.message); }
     };
   }
@@ -701,9 +1207,9 @@
   async function vRegistro() {
     const lista = await llamar('api_registro', 300);
     $('vRegistro').innerHTML = '<div class="pn-vista">' + cab('Registro', '', 'Las últimas 300 acciones. No guarda DNI ni correos del alumnado.') +
-      '<table class="tabla"><thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>' +
+      '<div class="tabla-env"><table class="tabla"><thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>' +
       lista.map((r) => '<tr><td style="white-space:nowrap">' + esc(r.fecha) + '</td><td>' + esc(r.usuario) + '</td><td><b>' + esc(r.accion) + '</b></td><td class="ayuda">' + esc(r.detalle) + '</td></tr>').join('') +
-      '</tbody></table></div>';
+      '</tbody></table></div></div>';
   }
 
   arrancar();

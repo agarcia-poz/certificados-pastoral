@@ -1,5 +1,14 @@
 # Novedades
 
+## 4.0.0 (2026-10-21)
+- Interfaz nueva con los colores del logo de Pastoral, iconos propios y pensada también para el móvil.
+- Formularios propios de inscripción y de evaluación (anónima) para cada actividad, diseñados en el panel con vista previa.
+- Importar desde una hoja de Drive (por ejemplo, las respuestas de un Google Forms) y dejarla enlazada: cada hora se traen solas las respuestas nuevas.
+- Automatización por actividad: validar, generar en el servidor, enviar a firmar y enviar al alumnado.
+- «Enviar a firmar» y «Enviar al alumnado» en la nueva pantalla «Envíos»: el certificado ya no va adjunto; cada persona recibe un correo privado con un código para descargarlo.
+- Inteligencia artificial con Groq (clave guardada en «Ajustes», nunca en el código): texto del certificado, propuesta de formularios e informe de valoraciones y propuestas de mejora.
+- Valoraciones e informes con gráficos y descarga del informe.
+
 ## 3.0.0 (2026-10-21)
 - Aplicación web propia: panel del equipo, inscripción pública y verificación, sin hojas de cálculo a la vista.
 - Acceso del equipo con código por correo y tres papeles: Administración, Coordinación y Firmante.

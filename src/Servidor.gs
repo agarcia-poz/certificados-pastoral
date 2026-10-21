@@ -12,13 +12,14 @@
  *    4. Abre la URL de la aplicación web: un asistente termina la configuración.
  *
  *  ACTUALIZAR: pega la versión nueva y en Implementar > Gestionar implementaciones >
- *  ✏️ > Versión: Nueva versión > Implementar. La dirección no cambia.
+ *  ✏️ > Versión: Nueva versión > Implementar. La dirección no cambia y los datos no se tocan.
  *
  *  Código fuente: https://github.com/agarcia-poz/certificados-pastoral
+ *  Ninguna clave (tampoco la de Groq) se escribe en este archivo: se guardan desde «Ajustes».
  * ============================================================================
  */
 
-const VERSION_APP = '3.0.0';
+const VERSION_APP = '4.0.0';
 
 const CONFIG = {
   REPO_GITHUB: 'agarcia-poz/certificados-pastoral',
@@ -35,6 +36,9 @@ const CONFIG = {
   HORAS_ENLACE_CONFIRMACION: 72,
   MAX_INSCRIPCIONES_CORREO_DIA: 3,
   MAX_CORREOS_PUBLICOS_HORA: 120,
+  MAX_EVALUACIONES_HORA: 400,
+  MAX_INTENTOS_DESCARGA: 8,
+  MODELO_IA: 'llama-3.3-70b-versatile',
   DIRECCION_PIE: 'Av. Cristo Rey, 17 · 23400 Úbeda (Jaén) · Tel. 953 79 61 02',
   FIRMANTES_INICIALES: [
     { cargo: 'Servicio de Pastoral y Compromiso Solidario', nombre: 'Andrés García Pozas', email: '' },
@@ -62,29 +66,34 @@ const ROLES = {
 };
 
 const ESTADOS = {
-  pendiente: 'Pendiente de validar',
-  validada: 'Validada · lista para generar',
+  pendiente: 'Por validar',
+  validada: 'Validada · por generar',
   rechazada: 'Rechazada',
-  generando: 'Generando…',
+  generando: 'Generando',
+  generado: 'Generado · por enviar a firmar',
   firma: 'En firma',
+  firmado: 'Firmado · por enviar',
   enviado: 'Enviado',
   anulado: 'Anulado',
   revisar: 'Revisar'
 };
 
-// Tablas (libro «Datos», privado) y bóveda (libro aparte, privado)
+// Tablas (libro «Datos», privado) y bóveda (libro aparte, privado). Las columnas nuevas van siempre al final.
 const TABLAS = {
-  Actividades: ['id', 'nombre', 'tipo', 'curso', 'fechas', 'lugar', 'horas', 'ects', 'abierta', 'creada', 'diseno'],
+  Actividades: ['id', 'nombre', 'tipo', 'curso', 'fechas', 'lugar', 'horas', 'ects', 'abierta', 'creada', 'diseno',
+    'contexto', 'evaluacion', 'formularios', 'enlace', 'auto'],
   Inscripciones: ['reg', 'fecha', 'curso', 'persona', 'nombre', 'actividad', 'rol', 'estado', 'codigo', 'archivo',
-    'firmas', 'enviado', 'notas'],
-  Valoraciones: ['fecha', 'actividad', 'valor', 'comentario', 'citable'],
+    'firmas', 'enviado', 'notas', 'origen', 'descarga', 'intentos', 'descargado'],
+  Valoraciones: ['fecha', 'actividad', 'valor', 'comentario', 'citable', 'mejora', 'respuestas', 'origen'],
   Equipo: ['email', 'nombre', 'rol', 'activo', 'alta'],
   Ajustes: ['clave', 'valor'],
-  Registro: ['fecha', 'usuario', 'accion', 'detalle']
+  Registro: ['fecha', 'usuario', 'accion', 'detalle'],
+  Importadas: ['huella', 'actividad', 'fecha', 'resultado']
 };
 const TABLAS_BOVEDA = {
   Personas: ['persona', 'dni', 'nombre', 'apellidos', 'email', 'alta', 'actualizado', 'consentimientos', 'avisos'],
-  Pendientes: ['token', 'creada', 'expira', 'email', 'datos']
+  Pendientes: ['token', 'creada', 'expira', 'email', 'datos'],
+  Respuestas: ['reg', 'actividad', 'fecha', 'datos']
 };
 
 const LETRAS_DNI = 'TRWAGMYFPDXBNJZSQVHLCKE';
@@ -94,8 +103,12 @@ const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   const pagina = String(p.p || '');
+  try { esquema_(); } catch (err) { }
   if (pagina === 'inscripcion') return paginaPublica_('inscripcion', {});
+  if (pagina === 'f') return paginaPublica_('formulario', { actividad: String(p.a || '').slice(0, 12) });
+  if (pagina === 'e') return paginaPublica_('evaluacion', { actividad: String(p.a || '').slice(0, 12) });
   if (pagina === 'confirmar') return paginaConfirmar_(String(p.t || ''));
+  if (pagina === 'descargar') return paginaPublica_('descargar', { codigo: normalizarCodigo_(p.c) });
   if (pagina === 'verificar' || p.c) return paginaVerificar_(String(p.c || ''));
   const t = HtmlService.createTemplate(recurso_('Panel'));
   return t.evaluate().setTitle('Pastoral · Certificados').addMetaTag('viewport', 'width=device-width, initial-scale=1')
@@ -153,16 +166,14 @@ function api_configurar(codigo, nombre) {
       LIBRO_DATOS: datos.getId(), LIBRO_BOVEDA: boveda.getId(), CARPETA_RAIZ: raiz.getId(),
       CARPETA_PDF: obtenerOCrearCarpeta_(raiz, 'Certificados (PDF)').getId(),
       CARPETA_IMAGENES: obtenerOCrearCarpeta_(raiz, 'Imágenes de diseño').getId(),
-      PROPIETARIO: email
+      CARPETA_MOTOR: obtenerOCrearCarpeta_(raiz, 'Motor de PDF (no tocar)').getId(),
+      PROPIETARIO: email, ESQUEMA: VERSION_APP
     });
     insertar_('Equipo', { email: email, nombre: limpiar_(nombre || email.split('@')[0]), rol: 'admin', activo: true, alta: new Date() });
     guardarAjuste_('firmantes', CONFIG.FIRMANTES_INICIALES.map(function (f, i) {
       return { cargo: f.cargo, nombre: f.nombre, email: i === 0 ? '' : f.email };
     }));
-    try {
-      ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
-      ScriptApp.newTrigger('mantenimientoDiario').timeBased().everyDays(1).atHour(3).create();
-    } catch (err) { }
+    asegurarDisparadores_();
     urlApp_();
     registrar_(email, 'Configuración inicial', 'Versión ' + VERSION_APP);
   } finally {
@@ -181,9 +192,46 @@ function prepararLibro_(ss, tablas) {
   if (sobra && ss.getSheets().length > 1) ss.deleteSheet(sobra);
 }
 
+/** Al estrenar una versión: añade las columnas, hojas, carpetas y tareas que falten. Los datos no se tocan. */
+function esquema_() {
+  if (!instalado_()) return;
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('ESQUEMA') === VERSION_APP) return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    if (props.getProperty('ESQUEMA') === VERSION_APP) return;
+    prepararLibro_(libroDatos_(), TABLAS);
+    prepararLibro_(libroBoveda_(), TABLAS_BOVEDA);
+    if (!props.getProperty('CARPETA_MOTOR')) props.setProperty('CARPETA_MOTOR', obtenerOCrearCarpeta_(carpeta_('CARPETA_RAIZ'), 'Motor de PDF (no tocar)').getId());
+    asegurarDisparadores_();
+    props.setProperty('ESQUEMA', VERSION_APP);
+    registrar_('automático', 'Actualización', 'Versión ' + VERSION_APP);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function asegurarDisparadores_() {
+  try {
+    const hay = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+    if (hay.indexOf('mantenimientoDiario') < 0) ScriptApp.newTrigger('mantenimientoDiario').timeBased().everyDays(1).atHour(3).create();
+    if (hay.indexOf('tareaAutomatica') < 0) ScriptApp.newTrigger('tareaAutomatica').timeBased().everyHours(1).create();
+  } catch (err) { }
+}
+
+/** Las tareas programadas solo puede lanzarlas la cuenta propietaria (o sus disparadores), nunca un visitante. */
+function soloPropietaria_() {
+  let quien = '';
+  try { quien = String(Session.getActiveUser().getEmail() || '').toLowerCase(); } catch (err) { }
+  const prop = String(PropertiesService.getScriptProperties().getProperty('PROPIETARIO') || '').toLowerCase();
+  if (!prop || quien !== prop) throw new Error('Solo la cuenta propietaria puede lanzar esta tarea.');
+}
+
 // ─────────────────────────────── ACCESO DEL EQUIPO ──────────────────────────
 /** Envía un código de acceso de 6 cifras si el correo pertenece al equipo. No revela si existe. */
 function api_pedirCodigo(email) {
+  esquema_();
   email = String(email || '').trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Escribe un correo válido.');
   const m = miembro_(email);
@@ -238,8 +286,7 @@ function comprobarCodigo_(email, codigo) {
 }
 
 function crearSesion_(email) {
-  const token = bytesAleatorios_().map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('') +
-    Utilities.getUuid().replace(/-/g, '');
+  const token = hexAleatorio_() + Utilities.getUuid().replace(/-/g, '');
   CacheService.getScriptCache().put('ses_' + huella_(token), JSON.stringify({ email: email }), CONFIG.HORAS_SESION * 3600);
   return { token: token, usuario: datosUsuario_(usuarioDe_(email)) };
 }
@@ -250,6 +297,7 @@ function sesion_(token, nivelMinimo) {
   const cache = CacheService.getScriptCache();
   const dato = JSON.parse(cache.get('ses_' + huella_(token)) || 'null');
   if (!dato) throw new Error('SESION: Tu sesión ha caducado. Vuelve a entrar.');
+  esquema_();
   const u = usuarioDe_(dato.email);
   if (!u) throw new Error('SESION: Ya no formas parte del equipo.');
   cache.put('ses_' + huella_(token), JSON.stringify(dato), CONFIG.HORAS_SESION * 3600);
@@ -282,65 +330,101 @@ function api_resumen(token) {
   const curso = cursoAcademico_(new Date());
   const cuenta = function (f) { return ins.filter(f).length; };
   const nFirm = leerAjuste_('firmantes', []).length;
+  const acts = leer_('Actividades');
   return {
     usuario: datosUsuario_(u),
     porValidar: cuenta(function (i) { return i.estado === 'pendiente'; }),
     porGenerar: cuenta(function (i) { return i.estado === 'validada' || i.estado === 'generando'; }),
+    generados: cuenta(function (i) { return i.estado === 'generado'; }),
     enFirma: cuenta(function (i) { return i.estado === 'firma'; }),
+    firmados: cuenta(function (i) { return i.estado === 'firmado'; }),
     misFirmas: cuenta(function (i) { return i.estado === 'firma' && u.firmas.indexOf(Number(i.firmas) || 0) > -1; }),
     revisar: cuenta(function (i) { return i.estado === 'revisar'; }),
     enviadosCurso: cuenta(function (i) { return i.estado === 'enviado' && i.curso === curso; }),
-    abiertas: leer_('Actividades').filter(function (a) { return a.abierta === true; }).map(function (a) { return a.nombre; }),
-    firmantes: nFirm, curso: curso,
-    urlInscripcion: urlApp_() + '?p=inscripcion', urlVerificacion: urlApp_() + '?p=verificar'
+    descargadosCurso: cuenta(function (i) { return i.estado === 'enviado' && i.curso === curso && !!i.descargado; }),
+    abiertas: acts.filter(function (a) { return a.abierta === true; }).map(function (a) { return { id: a.id, nombre: a.nombre }; }),
+    evaluando: acts.filter(function (a) { return a.evaluacion === true; }).map(function (a) { return { id: a.id, nombre: a.nombre }; }),
+    enlazadas: acts.filter(function (a) { return !!a.enlace; }).length,
+    firmantes: nFirm, curso: curso, ia: iaConfigurada_(),
+    urlInscripcion: urlApp_() + '?p=inscripcion', urlVerificacion: urlApp_() + '?p=verificar', urlApp: urlApp_()
   };
 }
 
 // ─────────────────────────────── ACTIVIDADES ────────────────────────────────
+function jsonDe_(texto, porDefecto) {
+  if (!texto) return porDefecto;
+  try { return JSON.parse(texto); } catch (err) { return porDefecto; }
+}
+function autoDe_(a) {
+  const x = jsonDe_(a.auto, {}) || {};
+  return { validar: x.validar === true, generar: x.generar === true, firmar: x.firmar === true, alumnado: x.alumnado === true };
+}
+function actividad_(id) { return leer_('Actividades').filter(function (x) { return x.id === id; })[0] || null; }
+
 function api_actividades(token) {
   sesion_(token, NIVEL.coordinacion);
   const ins = leer_('Inscripciones');
   const val = leer_('Valoraciones');
+  const url = urlApp_();
   return leer_('Actividades').map(function (a) {
     const mias = ins.filter(function (i) { return i.actividad === a.id; });
-    const v = val.filter(function (x) { return x.actividad === a.id; });
+    const v = val.filter(function (x) { return x.actividad === a.id && Number(x.valor) > 0; });
+    const n = function (est) { return mias.filter(function (i) { return est.indexOf(i.estado) > -1; }).length; };
+    const enl = jsonDe_(a.enlace, null);
     return {
       id: a.id, nombre: a.nombre, tipo: a.tipo, curso: a.curso, fechas: a.fechas, lugar: a.lugar,
-      horas: Number(a.horas) || 0, ects: Number(a.ects) || 0, abierta: a.abierta === true, conDiseno: !!a.diseno,
-      inscritos: mias.length, pendientes: mias.filter(function (i) { return i.estado === 'pendiente'; }).length,
-      porGenerar: mias.filter(function (i) { return i.estado === 'validada' || i.estado === 'generando'; }).length,
-      enviados: mias.filter(function (i) { return i.estado === 'enviado'; }).length,
+      horas: Number(a.horas) || 0, ects: Number(a.ects) || 0, abierta: a.abierta === true, evaluacion: a.evaluacion === true,
+      contexto: a.contexto || '', conDiseno: !!a.diseno, conFormularios: !!a.formularios, auto: autoDe_(a),
+      enlace: enl ? { nombre: enl.nombre, hoja: enl.hoja, ultima: enl.ultima ? fechaCorta_(enl.ultima) : '', total: enl.total || 0 } : null,
+      inscritos: mias.length, pendientes: n(['pendiente']), porGenerar: n(['validada', 'generando']), generados: n(['generado']),
+      enFirma: n(['firma']), firmados: n(['firmado']), enviados: n(['enviado']), revisar: n(['revisar']),
+      descargados: mias.filter(function (i) { return i.estado === 'enviado' && !!i.descargado; }).length,
       valoracion: v.length ? Math.round(v.reduce(function (s, x) { return s + Number(x.valor); }, 0) / v.length * 10) / 10 : null,
-      nValoraciones: v.length
+      nValoraciones: val.filter(function (x) { return x.actividad === a.id; }).length,
+      urlFormulario: url + '?p=f&a=' + a.id, urlEvaluacion: url + '?p=e&a=' + a.id
     };
   }).sort(function (x, y) { return String(y.id).localeCompare(String(x.id)); });
 }
 
 function api_guardarActividad(token, a) {
   const u = sesion_(token, NIVEL.coordinacion);
-  const nombre = limpiar_(a.nombre);
-  if (!nombre) throw new Error('La actividad necesita un nombre.');
-  if (nombre.length > 180) throw new Error('El nombre es demasiado largo.');
-  const fila = {
-    nombre: nombre, tipo: limpiar_(a.tipo || ''), curso: /^\d{4}-\d{2}$/.test(a.curso) ? a.curso : cursoAcademico_(new Date()),
-    fechas: limpiar_(a.fechas || ''), lugar: limpiar_(a.lugar || ''), horas: Number(String(a.horas).replace(',', '.')) || 0,
-    ects: Number(String(a.ects).replace(',', '.')) || 0, abierta: a.abierta === true
-  };
+  a = a || {};
+  const fila = {};
+  if (a.nombre !== undefined) {
+    fila.nombre = limpiar_(a.nombre);
+    if (!fila.nombre) throw new Error('La actividad necesita un nombre.');
+    if (fila.nombre.length > 180) throw new Error('El nombre es demasiado largo.');
+  }
+  if (a.tipo !== undefined) fila.tipo = limpiar_(a.tipo);
+  if (a.curso !== undefined) fila.curso = /^\d{4}-\d{2}$/.test(a.curso) ? a.curso : cursoAcademico_(new Date());
+  if (a.fechas !== undefined) fila.fechas = limpiar_(a.fechas);
+  if (a.lugar !== undefined) fila.lugar = limpiar_(a.lugar);
+  if (a.horas !== undefined) fila.horas = Number(String(a.horas).replace(',', '.')) || 0;
+  if (a.ects !== undefined) fila.ects = Number(String(a.ects).replace(',', '.')) || 0;
+  if (a.abierta !== undefined) fila.abierta = a.abierta === true;
+  if (a.evaluacion !== undefined) fila.evaluacion = a.evaluacion === true;
+  if (a.contexto !== undefined) fila.contexto = limpiar_(String(a.contexto).slice(0, 3000));
+  if (a.auto !== undefined) {
+    const x = a.auto || {};
+    fila.auto = JSON.stringify({ validar: x.validar === true, generar: x.generar === true, firmar: x.firmar === true, alumnado: x.alumnado === true });
+  }
   return conCerrojo_(function () {
     const acts = leer_('Actividades');
     if (a.id) {
       const x = acts.filter(function (r) { return r.id === a.id; })[0];
       if (!x) throw new Error('La actividad no existe.');
       actualizar_('Actividades', x._fila, fila);
-      registrar_(u.email, 'Actividad modificada', a.id);
+      registrar_(u.email, 'Actividad modificada', a.id + ' · ' + Object.keys(fila).join(', '));
       return a.id;
     }
+    if (!fila.nombre) throw new Error('La actividad necesita un nombre.');
     let max = 0;
     acts.forEach(function (r) { const m = String(r.id).match(/^A-(\d+)$/); if (m) max = Math.max(max, Number(m[1])); });
     const id = 'A-' + String(max + 1).padStart(3, '0');
-    fila.id = id; fila.creada = new Date(); fila.diseno = '';
-    insertar_('Actividades', fila);
-    registrar_(u.email, 'Actividad creada', id + ' · ' + nombre);
+    const nueva = Object.assign({ tipo: '', curso: cursoAcademico_(new Date()), fechas: '', lugar: '', horas: 0, ects: 0, abierta: false,
+      evaluacion: false, contexto: '', auto: '' }, fila, { id: id, creada: new Date(), diseno: '', formularios: '', enlace: '' });
+    insertar_('Actividades', nueva);
+    registrar_(u.email, 'Actividad creada', id + ' · ' + nueva.nombre);
     return id;
   });
 }
@@ -349,7 +433,7 @@ function api_borrarActividad(token, id) {
   const u = sesion_(token, NIVEL.coordinacion);
   return conCerrojo_(function () {
     if (leer_('Inscripciones').some(function (i) { return i.actividad === id; })) throw new Error('No se puede borrar: tiene inscripciones. Ciérrala en su lugar.');
-    const x = leer_('Actividades').filter(function (r) { return r.id === id; })[0];
+    const x = actividad_(id);
     if (!x) return true;
     hojaDatos_('Actividades').deleteRow(x._fila);
     registrar_(u.email, 'Actividad borrada', id);
@@ -364,9 +448,9 @@ function api_inscripciones(token, actId) {
   return leer_('Inscripciones').filter(function (i) { return i.actividad === actId; }).map(function (i) {
     const p = personas[i.persona] || {};
     return { reg: i.reg, fecha: fechaCorta_(i.fecha), persona: i.persona, nombre: p.nombre || '', apellidos: p.apellidos || '',
-      nombreCompleto: i.nombre, dniOculto: enmascararDni_(p.dni || ''), emailOculto: enmascararEmail_(p.email || ''),
+      nombreCompleto: i.nombre, dniOculto: enmascararDni_(p.dni || ''), emailOculto: enmascararEmail_(p.email || ''), tieneEmail: !!p.email,
       rol: i.rol, estado: i.estado, estadoNombre: ESTADOS[i.estado] || i.estado, codigo: i.codigo, firmas: Number(i.firmas) || 0,
-      notas: i.notas || '' };
+      notas: i.notas || '', origen: i.origen || 'web' };
   });
 }
 
@@ -387,9 +471,9 @@ function api_cambiarInscripciones(token, regs, cambio) {
     leer_('Inscripciones').forEach(function (i) {
       if (regs.indexOf(i.reg) < 0) return;
       const c = {};
-      if (cambio.rol && CONFIG.ROLES_ACTIVIDAD.indexOf(cambio.rol) > -1 && ['pendiente', 'validada', 'rechazada', 'revisar'].indexOf(i.estado) > -1) c.rol = cambio.rol;
-      if (cambio.estado && ['pendiente', 'validada', 'rechazada'].indexOf(cambio.estado) > -1 &&
-          ['pendiente', 'validada', 'rechazada', 'revisar'].indexOf(i.estado) > -1) c.estado = cambio.estado;
+      const editable = ['pendiente', 'validada', 'rechazada', 'revisar'].indexOf(i.estado) > -1 && !i.archivo;
+      if (cambio.rol && CONFIG.ROLES_ACTIVIDAD.indexOf(cambio.rol) > -1 && editable) c.rol = cambio.rol;
+      if (cambio.estado && ['pendiente', 'validada', 'rechazada'].indexOf(cambio.estado) > -1 && editable) c.estado = cambio.estado;
       if (Object.keys(c).length) { actualizar_('Inscripciones', i._fila, c); n++; }
     });
     registrar_(u.email, 'Inscripciones actualizadas', n + ' · ' + JSON.stringify(cambio));
@@ -397,7 +481,7 @@ function api_cambiarInscripciones(token, regs, cambio) {
   });
 }
 
-/** Corrige nombre, apellidos o DNI de una persona (bóveda). */
+/** Corrige nombre, apellidos, DNI o correo de una persona (bóveda). */
 function api_corregirPersona(token, personaId, c) {
   const u = sesion_(token, NIVEL.coordinacion);
   return conCerrojo_(function () { return corregirPersona_(u.email, personaId, c); });
@@ -414,13 +498,18 @@ function corregirPersona_(quien, personaId, c) {
       cambios.dni = dni; que.push('DNI');
     }
   }
+  if (c.email !== undefined && String(c.email).trim()) {
+    const email = String(c.email).trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('El correo no es válido.');
+    if (email !== String(p.email).toLowerCase()) { cambios.email = email; que.push('correo'); }
+  }
   if (c.nombre !== undefined && limpiar_(c.nombre) && limpiar_(c.nombre) !== p.nombre) { cambios.nombre = limpiar_(c.nombre); que.push('nombre'); }
   if (c.apellidos !== undefined && limpiar_(c.apellidos) && limpiar_(c.apellidos) !== p.apellidos) { cambios.apellidos = limpiar_(c.apellidos); que.push('apellidos'); }
   if (que.length) {
     cambios.actualizado = new Date();
     actualizarBoveda_('Personas', p._fila, cambios);
     const nuevo = (cambios.nombre || p.nombre) + ' ' + (cambios.apellidos || p.apellidos);
-    leer_('Inscripciones').forEach(function (i) { if (i.persona === personaId) actualizar_('Inscripciones', i._fila, { nombre: nuevo }); });
+    leer_('Inscripciones').forEach(function (i) { if (i.persona === personaId && i.nombre !== nuevo) actualizar_('Inscripciones', i._fila, { nombre: nuevo }); });
     registrar_(quien, 'Datos corregidos', personaId + ' · ' + que.join(', '));
   }
   return true;
@@ -433,21 +522,23 @@ function api_inicioEditor(token) {
   return {
     version: VERSION_APP,
     actividades: leer_('Actividades').map(function (a) {
-      return { id: a.id, nombre: a.nombre, tipo: a.tipo, curso: a.curso, fechas: a.fechas, lugar: a.lugar,
-        horas: Number(a.horas) || 0, ects: Number(a.ects) || 0, conDiseno: !!a.diseno,
+      return { id: a.id, nombre: a.nombre, tipo: a.tipo, curso: a.curso, fechas: a.fechas, lugar: a.lugar, contexto: a.contexto || '',
+        horas: Number(a.horas) || 0, ects: Number(a.ects) || 0, conDiseno: !!a.diseno, auto: autoDe_(a),
         pendientes: ins.filter(function (i) { return i.actividad === a.id && enCola_(i); }).length };
     }),
-    firmantes: leerAjuste_('firmantes', []).map(function (f) { return { titulo: f.cargo, nombre: f.nombre }; }),
-    roles: CONFIG.ROLES_ACTIVIDAD, url: urlApp_(), lugarPorDefecto: CONFIG.LUGAR_POR_DEFECTO,
-    hayBase: !!leerAjuste_('disenoBase', null), usuario: datosUsuario_(u)
+    firmantes: firmantesCert_(), roles: CONFIG.ROLES_ACTIVIDAD, url: urlApp_(), lugarPorDefecto: CONFIG.LUGAR_POR_DEFECTO,
+    hayBase: !!leerAjuste_('disenoBase', null), usuario: datosUsuario_(u), ia: iaConfigurada_()
   };
 }
+function firmantesCert_() { return leerAjuste_('firmantes', []).map(function (f) { return { titulo: f.cargo, nombre: f.nombre }; }); }
 
-function api_diseno(token, actId) {
-  sesion_(token, NIVEL.coordinacion);
-  const a = leer_('Actividades').filter(function (x) { return x.id === actId; })[0];
+function disenoDe_(a) {
   if (a && a.diseno) { try { return JSON.parse(a.diseno); } catch (err) { } }
   return leerAjuste_('disenoBase', {}) || {};
+}
+function api_diseno(token, actId) {
+  sesion_(token, NIVEL.coordinacion);
+  return disenoDe_(actividad_(actId));
 }
 
 function api_guardarDiseno(token, actId, diseno, tambienComoBase) {
@@ -455,7 +546,7 @@ function api_guardarDiseno(token, actId, diseno, tambienComoBase) {
   const texto = JSON.stringify(diseno || {});
   if (texto.length > 45000) throw new Error('El diseño es demasiado grande (¿texto muy largo?).');
   return conCerrojo_(function () {
-    const a = leer_('Actividades').filter(function (x) { return x.id === actId; })[0];
+    const a = actividad_(actId);
     if (!a) throw new Error('La actividad no existe.');
     actualizar_('Actividades', a._fila, { diseno: texto });
     if (tambienComoBase) guardarAjuste_('disenoBase', diseno);
@@ -496,52 +587,59 @@ function api_cola(token, actId) {
 
 function api_reservar(token, regs) {
   sesion_(token, NIVEL.coordinacion);
-  return conCerrojo_(function () {
-    const ins = leer_('Inscripciones');
-    const acts = indice_(leer_('Actividades'), 'id');
-    const usados = {};
-    ins.forEach(function (i) { if (i.codigo) usados[i.codigo] = true; });
-    const res = {};
-    ins.forEach(function (i) {
-      if (regs.indexOf(i.reg) < 0 || !enCola_(i)) return;
-      let codigo = i.codigo;
-      if (!codigo) {
-        codigo = nuevoCodigo_((acts[i.actividad] || {}).curso || i.curso, usados);
-        usados[codigo] = true;
-        actualizar_('Inscripciones', i._fila, { estado: 'generando', codigo: codigo });
-      }
-      res[i.reg] = codigo;
-    });
-    return res;
+  return conCerrojo_(function () { return reservar_(regs); });
+}
+/** Da (o recupera) un código a cada inscripción en cola. Debe llamarse con el cerrojo puesto. */
+function reservar_(regs) {
+  const ins = leer_('Inscripciones');
+  const acts = indice_(leer_('Actividades'), 'id');
+  const usados = {};
+  ins.forEach(function (i) { if (i.codigo) usados[i.codigo] = true; });
+  const res = {};
+  ins.forEach(function (i) {
+    if (regs.indexOf(i.reg) < 0 || !enCola_(i)) return;
+    let codigo = i.codigo;
+    if (!codigo) {
+      codigo = nuevoCodigo_((acts[i.actividad] || {}).curso || i.curso, usados);
+      usados[codigo] = true;
+      actualizar_('Inscripciones', i._fila, { estado: 'generando', codigo: codigo });
+    }
+    res[i.reg] = codigo;
   });
+  return res;
 }
 
 function api_guardarPdf(token, reg, codigo, base64, cambios) {
   const u = sesion_(token, NIVEL.coordinacion);
-  return conCerrojo_(function () {
-    const i = leer_('Inscripciones').filter(function (x) { return x.reg === reg; })[0];
-    if (!i) throw new Error('No se encuentra la inscripción ' + reg);
-    if (i.codigo !== codigo || i.estado !== 'generando') throw new Error('La inscripción ' + reg + ' ya no está pendiente de generar.');
-    const bytes = Utilities.base64Decode(base64);
-    if (String.fromCharCode.apply(null, bytes.slice(0, 5).map(function (b) { return (b + 256) % 256; })) !== '%PDF-') throw new Error('El archivo recibido no es un PDF.');
-    const c = {};
-    if (cambios) {
-      if (cambios.rol && CONFIG.ROLES_ACTIVIDAD.indexOf(cambios.rol) > -1) c.rol = cambios.rol;
-      if (cambios.nombre !== undefined || cambios.apellidos !== undefined || cambios.dni !== undefined) corregirPersona_(u.email, i.persona, cambios);
-    }
-    const a = indice_(leer_('Actividades'), 'id')[i.actividad] || {};
-    const f = carpeta_('CARPETA_PDF').createFile(Utilities.newBlob(bytes, 'application/pdf', nombreArchivo_(codigo, a.nombre)));
-    c.estado = 'firma'; c.archivo = f.getId(); c.firmas = 0;
-    actualizar_('Inscripciones', i._fila, c);
-    registrar_(u.email, 'Certificado generado', codigo + ' · ' + reg);
-    return { ok: true };
-  });
+  return conCerrojo_(function () { return guardarPdf_(u.email, reg, codigo, Utilities.base64Decode(base64), cambios); });
+}
+function guardarPdf_(quien, reg, codigo, bytes, cambios) {
+  const i = leer_('Inscripciones').filter(function (x) { return x.reg === reg; })[0];
+  if (!i) throw new Error('No se encuentra la inscripción ' + reg);
+  if (i.codigo !== codigo || i.estado !== 'generando') throw new Error('La inscripción ' + reg + ' ya no está pendiente de generar.');
+  if (String.fromCharCode.apply(null, bytes.slice(0, 5).map(function (b) { return (b + 256) % 256; })) !== '%PDF-') throw new Error('El archivo recibido no es un PDF.');
+  const c = {};
+  if (cambios) {
+    if (cambios.rol && CONFIG.ROLES_ACTIVIDAD.indexOf(cambios.rol) > -1) c.rol = cambios.rol;
+    if (cambios.nombre !== undefined || cambios.apellidos !== undefined || cambios.dni !== undefined) corregirPersona_(quien, i.persona, cambios);
+  }
+  const a = indice_(leer_('Actividades'), 'id')[i.actividad] || {};
+  const f = carpeta_('CARPETA_PDF').createFile(Utilities.newBlob(bytes, 'application/pdf', nombreArchivo_(codigo, a.nombre)));
+  c.estado = 'generado'; c.archivo = f.getId(); c.firmas = 0;
+  actualizar_('Inscripciones', i._fila, c);
+  registrar_(quien, 'Certificado generado', codigo + ' · ' + reg);
+  return { ok: true };
 }
 
-function api_finTanda(token, n) {
-  sesion_(token, NIVEL.coordinacion);
-  if (n > 0) avisarFirmante_(0, n);
-  return true;
+/** Al terminar una tanda en el navegador: si la actividad lo tiene automatizado, pasa a firma. */
+function api_finTanda(token, n, actId) {
+  const u = sesion_(token, NIVEL.coordinacion);
+  const a = actId ? actividad_(actId) : null;
+  if (a && autoDe_(a).firmar) {
+    const cods = leer_('Inscripciones').filter(function (i) { return i.actividad === a.id && i.estado === 'generado'; }).map(function (i) { return i.codigo; });
+    return { aFirma: enviarAFirmar_(u.email, cods, '') };
+  }
+  return { aFirma: 0 };
 }
 
 // ─────────────────────────────── CERTIFICADOS ───────────────────────────────
@@ -550,6 +648,7 @@ function api_certificados(token, filtro) {
   filtro = filtro || {};
   const acts = indice_(leer_('Actividades'), 'id');
   const firmantes = leerAjuste_('firmantes', []);
+  const personas = u.rol === 'firmante' ? {} : leerPersonas_();
   return leer_('Inscripciones').filter(function (i) {
     if (!i.codigo) return false;
     if (filtro.actividad && i.actividad !== filtro.actividad) return false;
@@ -558,10 +657,12 @@ function api_certificados(token, filtro) {
     return true;
   }).map(function (i) {
     const k = Number(i.firmas) || 0;
+    const p = personas[i.persona] || {};
     return { codigo: i.codigo, reg: i.reg, nombre: i.nombre, actividad: (acts[i.actividad] || {}).nombre || i.actividad,
       actividadId: i.actividad, rol: i.rol, estado: i.estado, firmas: k, totalFirmas: firmantes.length,
       pendienteDe: i.estado === 'firma' && firmantes[k] ? firmantes[k].nombre : '', enviado: i.enviado ? fechaCorta_(i.enviado) : '',
-      notas: i.notas || '' };
+      descargado: i.descargado ? fechaCorta_(i.descargado) : '', tieneEmail: u.rol === 'firmante' ? true : !!p.email,
+      persona: u.rol === 'firmante' ? '' : i.persona, notas: i.notas || '' };
   });
 }
 
@@ -576,9 +677,34 @@ function api_pdf(token, codigo) {
   return { nombre: f.getName(), base64: Utilities.base64Encode(f.getBlob().getBytes()) };
 }
 
+/** «Enviar a firmar»: los certificados generados pasan al primer firmante, que recibe un aviso. */
+function api_enviarAFirmar(token, codigos, mensaje) {
+  const u = sesion_(token, NIVEL.coordinacion);
+  return enviarAFirmar_(u.email, codigos || [], limpiar_(String(mensaje || '').slice(0, 600)));
+}
+function enviarAFirmar_(quien, codigos, mensaje) {
+  const firmantes = leerAjuste_('firmantes', []);
+  if (!firmantes.length) throw new Error('No hay firmantes configurados (Ajustes).');
+  const n = conCerrojo_(function () {
+    let k = 0;
+    leer_('Inscripciones').forEach(function (i) {
+      if (codigos.indexOf(i.codigo) < 0 || i.estado !== 'generado') return;
+      actualizar_('Inscripciones', i._fila, { estado: 'firma', firmas: 0 });
+      k++;
+    });
+    return k;
+  });
+  if (n) {
+    const total = leer_('Inscripciones').filter(function (i) { return i.estado === 'firma' && (Number(i.firmas) || 0) === 0; }).length;
+    avisarFirmante_(0, total, mensaje);
+    registrar_(quien, 'Enviados a firmar', n + ' certificado(s) → ' + firmantes[0].nombre);
+  }
+  return n;
+}
+
 /**
  * Recibe un PDF firmado con Autofirma. Lo identifica por el código del nombre, comprueba que le
- * tocaba a esa persona y que contiene la firma, y lo pasa al siguiente firmante o lo envía.
+ * tocaba a esa persona y que contiene la firma, y lo pasa al siguiente firmante o lo deja «Firmado».
  */
 function api_subirFirmado(token, nombreArchivo, base64) {
   const u = sesion_(token);
@@ -598,23 +724,21 @@ function api_subirFirmado(token, nombreArchivo, base64) {
     }
     const firmantes = leerAjuste_('firmantes', []);
     const acts = indice_(leer_('Actividades'), 'id');
-    const nombre = nombreArchivo_(m[0], (acts[i.actividad] || {}).nombre);
-    const nuevo = carpeta_('CARPETA_PDF').createFile(blob.setName(nombre));
+    const a = acts[i.actividad] || {};
+    const nuevo = carpeta_('CARPETA_PDF').createFile(blob.setName(nombreArchivo_(m[0], a.nombre)));
     try { DriveApp.getFileById(i.archivo).setTrashed(true); } catch (err) { }
     if (k + 1 < firmantes.length) {
       actualizar_('Inscripciones', i._fila, { archivo: nuevo.getId(), firmas: k + 1 });
       registrar_(u.email, 'Firma ' + (k + 1) + '/' + firmantes.length, m[0]);
       return { ok: true, codigo: m[0], siguiente: firmantes[k + 1].nombre };
     }
-    const p = leerPersonas_()[i.persona];
-    if (!p || !p.email) {
-      actualizar_('Inscripciones', i._fila, { archivo: nuevo.getId(), firmas: k + 1, estado: 'revisar', notas: 'Firmado, pero sin correo en la bóveda' });
-      return { ok: false, motivo: m[0] + ': firmado, pero la persona no tiene correo. Revísalo en «Certificados».' };
+    actualizar_('Inscripciones', i._fila, { archivo: nuevo.getId(), firmas: k + 1, estado: 'firmado' });
+    registrar_(u.email, 'Firmas completas', m[0]);
+    if (autoDe_(a).alumnado) {
+      const r = enviarAlumnadoUno_(u.email, m[0]);
+      return { ok: true, codigo: m[0], firmado: true, enviado: r === 'enviado', motivo: r === 'enviado' ? '' : r };
     }
-    enviarCertificado_(p, i, (acts[i.actividad] || {}).nombre || '', m[0], nuevo.getBlob().setName(m[0] + '.pdf'));
-    actualizar_('Inscripciones', i._fila, { archivo: nuevo.getId(), firmas: k + 1, estado: 'enviado', enviado: new Date() });
-    registrar_(u.email, 'Certificado enviado', m[0]);
-    return { ok: true, codigo: m[0], enviado: true };
+    return { ok: true, codigo: m[0], firmado: true };
   });
 }
 
@@ -625,9 +749,42 @@ function api_finSubida(token) {
   const ins = leer_('Inscripciones');
   firmantes.forEach(function (f, k) {
     const n = ins.filter(function (i) { return i.estado === 'firma' && (Number(i.firmas) || 0) === k; }).length;
-    if (k > 0 && n) avisarFirmante_(k, n);
+    if (k > 0 && n) avisarFirmante_(k, n, '');
   });
   return true;
+}
+
+/** «Enviar al alumnado»: un correo privado con un código para descargar el certificado firmado. */
+function api_enviarAlumnado(token, codigos) {
+  const u = sesion_(token, NIVEL.coordinacion);
+  let enviados = 0;
+  const problemas = [];
+  (codigos || []).forEach(function (c) {
+    const r = conCerrojo_(function () { return enviarAlumnadoUno_(u.email, c); });
+    if (r === 'enviado') enviados++; else problemas.push(c + ': ' + r);
+  });
+  return { enviados: enviados, problemas: problemas };
+}
+/** Debe llamarse con el cerrojo puesto. Devuelve 'enviado' o el motivo por el que no se pudo. */
+function enviarAlumnadoUno_(quien, codigo) {
+  const i = leer_('Inscripciones').filter(function (x) { return x.codigo === codigo; })[0];
+  if (!i) return 'no existe';
+  const nFirm = leerAjuste_('firmantes', []).length;
+  const listo = i.estado === 'firmado' || (i.estado === 'revisar' && i.archivo && (Number(i.firmas) || 0) >= nFirm);
+  if (!listo) return 'no está firmado (' + (ESTADOS[i.estado] || i.estado) + ')';
+  const p = leerPersonas_()[i.persona];
+  if (!p || !p.email) {
+    actualizar_('Inscripciones', i._fila, { estado: 'revisar', notas: 'Firmado, pero sin correo: añádelo con «Corregir datos»' });
+    return 'la persona no tiene correo';
+  }
+  if (cuotaCorreo_() < 1) return 'se ha agotado el cupo diario de correos de Google; prueba mañana';
+  const a = actividad_(i.actividad) || {};
+  const clave = nuevaClave_();
+  enviarDescarga_(p, i, a, codigo, clave);
+  actualizar_('Inscripciones', i._fila, { estado: 'enviado', enviado: new Date(), descarga: huella_(codigo + '|' + clave), intentos: 0,
+    notas: i.estado === 'revisar' ? '' : i.notas });
+  registrar_(quien, 'Enviado al alumno/a', codigo);
+  return 'enviado';
 }
 
 function api_rehacer(token, codigo) {
@@ -650,22 +807,26 @@ function api_anular(token, codigo) {
     const i = leer_('Inscripciones').filter(function (x) { return x.codigo === codigo; })[0];
     if (!i) throw new Error('No existe.');
     if (i.archivo && i.estado !== 'enviado') { try { DriveApp.getFileById(i.archivo).setTrashed(true); } catch (err) { } }
-    actualizar_('Inscripciones', i._fila, { estado: 'anulado', notas: ((i.notas ? i.notas + ' · ' : '') + 'Anulado el ' + fechaCorta_(new Date())) });
+    actualizar_('Inscripciones', i._fila, { estado: 'anulado', descarga: '', notas: ((i.notas ? i.notas + ' · ' : '') + 'Anulado el ' + fechaCorta_(new Date())) });
     registrar_(u.email, 'Certificado anulado', codigo);
     return true;
   });
 }
 
+/** Reenvía el correo de descarga con un código nuevo (el anterior deja de valer). */
 function api_reenviar(token, codigo) {
   const u = sesion_(token, NIVEL.coordinacion);
-  const i = leer_('Inscripciones').filter(function (x) { return x.codigo === codigo; })[0];
-  if (!i || i.estado !== 'enviado' || !i.archivo) throw new Error('Solo se pueden reenviar certificados ya enviados.');
-  const p = leerPersonas_()[i.persona];
-  if (!p || !p.email) throw new Error('La persona no tiene correo.');
-  const a = indice_(leer_('Actividades'), 'id')[i.actividad] || {};
-  enviarCertificado_(p, i, a.nombre || '', codigo, DriveApp.getFileById(i.archivo).getBlob().setName(codigo + '.pdf'));
-  registrar_(u.email, 'Certificado reenviado', codigo);
-  return true;
+  return conCerrojo_(function () {
+    const i = leer_('Inscripciones').filter(function (x) { return x.codigo === codigo; })[0];
+    if (!i || i.estado !== 'enviado' || !i.archivo) throw new Error('Solo se pueden reenviar certificados ya enviados.');
+    const p = leerPersonas_()[i.persona];
+    if (!p || !p.email) throw new Error('La persona no tiene correo.');
+    const clave = nuevaClave_();
+    enviarDescarga_(p, i, actividad_(i.actividad) || {}, codigo, clave);
+    actualizar_('Inscripciones', i._fila, { descarga: huella_(codigo + '|' + clave), intentos: 0 });
+    registrar_(u.email, 'Certificado reenviado', codigo);
+    return true;
+  });
 }
 
 /** Plan B de las descargas: envía por correo a quien lo pide un PDF de prueba. */
@@ -701,7 +862,8 @@ function api_enviarmeZip(token) {
 function api_valoraciones(token, actId) {
   sesion_(token, NIVEL.coordinacion);
   return leer_('Valoraciones').filter(function (v) { return !actId || v.actividad === actId; }).map(function (v) {
-    return { fecha: fechaCorta_(v.fecha), actividad: v.actividad, valor: Number(v.valor) || 0, comentario: v.comentario || '', citable: v.citable === true };
+    return { fecha: fechaCorta_(v.fecha), actividad: v.actividad, valor: Number(v.valor) || 0, comentario: v.comentario || '',
+      mejora: v.mejora || '', citable: v.citable === true, respuestas: jsonDe_(v.respuestas, {}), origen: v.origen || 'web' };
   }).reverse();
 }
 
@@ -741,7 +903,7 @@ function api_guardarMiembro(token, m) {
 function api_ajustes(token) {
   sesion_(token, NIVEL.coordinacion);
   return { firmantes: leerAjuste_('firmantes', []), lugar: CONFIG.LUGAR_POR_DEFECTO, version: VERSION_APP,
-    urlApp: urlApp_(), repo: 'https://github.com/' + CONFIG.REPO_GITHUB };
+    urlApp: urlApp_(), repo: 'https://github.com/' + CONFIG.REPO_GITHUB, ia: iaAjustes_(), cuotaCorreo: cuotaCorreo_() };
 }
 
 function api_guardarFirmantes(token, lista) {
@@ -776,19 +938,23 @@ function api_anonimizar(token, curso) {
   if (!/^\d{4}-\d{2}$/.test(curso)) throw new Error('Formato no válido. Ejemplo: 2025-26');
   if (curso >= cursoAcademico_(new Date())) throw new Error('Solo se pueden anonimizar cursos ya terminados.');
   return conCerrojo_(function () {
-    const sigue = {};
+    const sigue = {}, regsAnon = {};
     let filas = 0, pdfs = 0;
     leer_('Inscripciones').forEach(function (i) {
       if (String(i.curso) > curso) { sigue[i.persona] = true; return; }
-      const c = {};
+      regsAnon[i.reg] = true;
+      const c = { descarga: '' };
       if (i.nombre && i.nombre !== iniciales_(i.nombre)) { c.nombre = iniciales_(i.nombre); filas++; }
       if (i.archivo) { try { DriveApp.getFileById(i.archivo).setTrashed(true); pdfs++; } catch (err) { } c.archivo = ''; }
-      if (Object.keys(c).length) actualizar_('Inscripciones', i._fila, c);
+      actualizar_('Inscripciones', i._fila, c);
     });
     const sh = libroBoveda_().getSheetByName('Personas');
     const pers = leerBoveda_('Personas');
     let borradas = 0;
     for (let k = pers.length - 1; k >= 0; k--) if (!sigue[pers[k].persona]) { sh.deleteRow(pers[k]._fila); borradas++; }
+    const shR = libroBoveda_().getSheetByName('Respuestas');
+    const resp = leerBoveda_('Respuestas');
+    for (let k = resp.length - 1; k >= 0; k--) if (regsAnon[resp[k].reg]) shR.deleteRow(resp[k]._fila);
     const det = 'Curso ' + curso + ' y anteriores · ' + filas + ' nombres → iniciales · ' + borradas + ' personas borradas · ' + pdfs + ' PDF retirados';
     registrar_(u.email, 'Anonimización', det);
     return det;
@@ -799,13 +965,16 @@ function api_anonimizar(token, curso) {
 function paginaPublica_(tipo, datos) {
   const t = HtmlService.createTemplate(recurso_('Publico'));
   t.tipoJs = jsSeguro_(tipo); t.datosJs = jsSeguro_(datos || {}); t.urlJs = jsSeguro_(urlApp_());
-  return t.evaluate().setTitle(tipo === 'inscripcion' ? 'Registro de participación · Pastoral C.U. SAFA' : 'Pastoral · C.U. SAFA')
+  const titulos = { inscripcion: 'Registro de participación', formulario: 'Inscripción', evaluacion: 'Evaluación', descargar: 'Tu certificado',
+    verificar: 'Verificación de certificados', confirmar: 'Confirmación' };
+  return t.evaluate().setTitle((titulos[tipo] || 'Pastoral') + ' · Pastoral C.U. SAFA')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 /** Actividades abiertas para la página pública (sin datos de nadie). */
 function api_publicoActividades() {
   if (!instalado_()) return { actividades: [], privacidad: CONFIG.TEXTO_PRIVACIDAD, roles: CONFIG.ROLES_ACTIVIDAD };
+  esquema_();
   return {
     actividades: leer_('Actividades').filter(function (a) { return a.abierta === true; })
       .map(function (a) { return { id: a.id, nombre: a.nombre, fechas: a.fechas, tipo: a.tipo }; }),
@@ -814,11 +983,12 @@ function api_publicoActividades() {
 }
 
 /**
- * Registro público. Guarda una solicitud pendiente (en la bóveda) y envía un enlace de confirmación.
- * Hasta que la persona no confirma desde su correo, no se crea nada.
+ * Registro público (página general o formulario de una actividad). Guarda una solicitud pendiente
+ * (en la bóveda) y envía un enlace de confirmación. Hasta que la persona no confirma, no se crea nada.
  */
 function api_publicoInscribir(f) {
   if (!instalado_()) throw new Error('La aplicación aún no está configurada.');
+  esquema_();
   f = f || {};
   if (f.web) throw new Error('No se ha podido enviar.');                       // campo trampa para robots
   const nombre = capitalizar_(f.nombre), apellidos = capitalizar_(f.apellidos);
@@ -829,13 +999,19 @@ function api_publicoInscribir(f) {
   if (!dniValido_(dni)) throw new Error('El DNI/NIE no es válido: revisa el número y la letra.');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Escribe un correo válido.');
   if (f.consentimiento !== true || f.consentimiento9 !== true) throw new Error('Necesitamos tus dos consentimientos para expedir el certificado.');
-  const abiertas = indice_(leer_('Actividades').filter(function (a) { return a.abierta === true; }), 'id');
+  const abiertasLista = leer_('Actividades').filter(function (a) { return a.abierta === true; });
+  const abiertas = indice_(abiertasLista, 'id');
+  const respuestas = {};
   const elegidas = (f.actividades || []).filter(function (x) { return abiertas[x.id] && CONFIG.ROLES_ACTIVIDAD.indexOf(x.rol) > -1; })
     .map(function (x) {
       const v = Number(x.valor);
+      const def = formularioDe_(abiertas[x.id], 'inscripcion');
+      const r = (f.respuestas || {})[x.id];
+      if (r) respuestas[x.id] = validarRespuestas_(def, r);
+      else if (def.preguntas.some(function (q) { return q.obligatoria; }) && f.formulario === x.id) validarRespuestas_(def, {});
       return { id: x.id, rol: x.rol, valor: v >= 1 && v <= 5 ? v : null };
     });
-  if (!elegidas.length) throw new Error('Marca al menos una actividad.');
+  if (!elegidas.length) throw new Error(f.formulario ? 'La inscripción de esta actividad está cerrada.' : 'Marca al menos una actividad.');
   const cache = CacheService.getScriptCache();
   const hora = 'pub_' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMddHH');
   const nHora = Number(cache.get(hora) || 0);
@@ -847,17 +1023,17 @@ function api_publicoInscribir(f) {
     if (pend.filter(function (p) { return p.email === hEmail && new Date(p.creada).getTime() > hace24; }).length >= CONFIG.MAX_INSCRIPCIONES_CORREO_DIA) {
       throw new Error('Has enviado varias solicitudes hoy. Revisa tu correo (también el correo no deseado).');
     }
-    const token = bytesAleatorios_().map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('') + Utilities.getUuid().replace(/-/g, '');
+    const token = hexAleatorio_() + Utilities.getUuid().replace(/-/g, '');
     insertarBoveda_('Pendientes', { token: huella_(token), creada: new Date(),
       expira: new Date(Date.now() + CONFIG.HORAS_ENLACE_CONFIRMACION * 3600 * 1000), email: hEmail,
-      datos: JSON.stringify({ nombre: nombre, apellidos: apellidos, dni: dni, email: email, actividades: elegidas,
+      datos: JSON.stringify({ nombre: nombre, apellidos: apellidos, dni: dni, email: email, actividades: elegidas, respuestas: respuestas,
         comentario: limpiar_(String(f.comentario || '').slice(0, 1500)), citable: f.citable === true }) });
     cache.put(hora, String(nHora + 1), 3700);
     const lista = elegidas.map(function (x) { return '• ' + esc_(abiertas[x.id].nombre) + ' — ' + esc_(x.rol); });
     enviarEmail_(email, 'Confirma tu registro · Pastoral C.U. SAFA', plantillaEmail_({
       titulo: 'Confirma tu registro', titular: 'Confirma tu registro', subtitular: CONFIG.NOMBRE_SERVICIO,
       parrafos: ['Hola, ' + esc_(nombre) + ':', 'Hemos recibido tu registro de participación. Para que sea válido, confírmalo pulsando el botón.'],
-      destacado: { icono: '📝', titulo: 'Actividades', lineas: lista },
+      destacado: { titulo: 'Actividades', lineas: lista },
       boton: { texto: 'Confirmar mi registro', url: urlApp_() + '?p=confirmar&t=' + token },
       cierre: 'El enlace caduca en ' + CONFIG.HORAS_ENLACE_CONFIRMACION + ' horas. Si no has sido tú, ignora este correo.'
     }));
@@ -879,36 +1055,48 @@ function confirmar_(token) {
     libroBoveda_().getSheetByName('Pendientes').deleteRow(pend._fila);          // un solo uso
     if (new Date(pend.expira).getTime() < Date.now()) return { ok: false, mensaje: 'El enlace ha caducado. Vuelve a registrarte.' };
     const d = JSON.parse(pend.datos);
-    const persona = guardarPersona_(d.dni, d.nombre, d.apellidos, d.email);
+    const persona = guardarPersona_(d.dni, d.nombre, d.apellidos, d.email, 'RGPD 6.1.a + 9.2.a · ' + fechaCorta_(new Date()));
     const acts = indice_(leer_('Actividades'), 'id');
     const existentes = leer_('Inscripciones');
-    let max = 0;
-    existentes.forEach(function (i) { const m = String(i.reg).match(/^R-(\d+)$/); if (m) max = Math.max(max, Number(m[1])); });
+    let max = maxReg_(existentes);
     const hechas = [];
     d.actividades.forEach(function (x) {
       const a = acts[x.id];
       if (!a) return;
-      if (x.valor) insertar_('Valoraciones', { fecha: new Date(), actividad: x.id, valor: x.valor, comentario: d.comentario || '', citable: d.comentario ? d.citable === true : false });
+      if (x.valor) insertar_('Valoraciones', { fecha: new Date(), actividad: x.id, valor: x.valor, comentario: d.comentario || '', citable: d.comentario ? d.citable === true : false, origen: 'inscripción' });
       if (existentes.some(function (i) { return i.persona === persona.id && i.actividad === x.id; })) { hechas.push(a.nombre + ' (ya estaba registrada)'); return; }
-      insertar_('Inscripciones', { reg: 'R-' + String(++max).padStart(5, '0'), fecha: new Date(), curso: a.curso || cursoAcademico_(new Date()),
-        persona: persona.id, nombre: persona.nombreCompleto, actividad: x.id, rol: x.rol, estado: 'pendiente', codigo: '', archivo: '',
-        firmas: 0, enviado: '', notas: persona.aviso ? '⚠️ ' + persona.aviso : '' });
+      const reg = 'R-' + String(++max).padStart(5, '0');
+      insertar_('Inscripciones', { reg: reg, fecha: new Date(), curso: a.curso || cursoAcademico_(new Date()),
+        persona: persona.id, nombre: persona.nombreCompleto, actividad: x.id, rol: x.rol,
+        estado: autoDe_(a).validar && !persona.aviso ? 'validada' : 'pendiente', codigo: '', archivo: '',
+        firmas: 0, enviado: '', notas: persona.aviso ? 'Aviso: ' + persona.aviso : '', origen: 'web' });
+      if (d.respuestas && d.respuestas[x.id] && Object.keys(d.respuestas[x.id]).length) {
+        insertarBoveda_('Respuestas', { reg: reg, actividad: x.id, fecha: new Date(), datos: JSON.stringify(d.respuestas[x.id]) });
+      }
       hechas.push(a.nombre);
     });
     registrar_('público', 'Registro confirmado', persona.id + ' · ' + hechas.length + ' actividad(es)');
     return { ok: true, nombre: d.nombre, actividades: hechas };
   });
 }
+function maxReg_(ins) {
+  let max = 0;
+  ins.forEach(function (i) { const m = String(i.reg).match(/^R-(\d+)$/); if (m) max = Math.max(max, Number(m[1])); });
+  return max;
+}
 
 /** Busca a la persona por DNI. Nunca sobrescribe el correo ni el nombre de alguien ya registrado. */
-function guardarPersona_(dni, nombre, apellidos, email) {
+function guardarPersona_(dni, nombre, apellidos, email, consentimiento) {
   const pers = leerBoveda_('Personas');
   let max = 0;
   pers.forEach(function (p) { const m = String(p.persona).match(/^P-(\d+)$/); if (m) max = Math.max(max, Number(m[1])); });
   const p = pers.filter(function (x) { return normalizarDni_(x.dni) === dni; })[0];
   if (p) {
     const avisos = [];
-    if (String(p.email).toLowerCase() !== email) avisos.push('correo distinto (' + email + ')');
+    if (email && String(p.email).toLowerCase() !== email) {
+      if (!p.email) actualizarBoveda_('Personas', p._fila, { email: email });
+      else avisos.push('correo distinto (' + email + ')');
+    }
     if (normalizarTexto_(p.nombre + ' ' + p.apellidos) !== normalizarTexto_(nombre + ' ' + apellidos)) avisos.push('nombre distinto (' + nombre + ' ' + apellidos + ')');
     const c = { actualizado: new Date() };
     if (avisos.length) c.avisos = (p.avisos ? p.avisos + '\n' : '') + fechaCorta_(new Date()) + ': ' + avisos.join(', ');
@@ -917,13 +1105,13 @@ function guardarPersona_(dni, nombre, apellidos, email) {
       aviso: avisos.length ? 'mismo DNI con ' + avisos.map(function (a) { return a.split(' (')[0]; }).join(' y ') + ': revísalo' : '' };
   }
   const id = 'P-' + String(max + 1).padStart(4, '0');
-  insertarBoveda_('Personas', { persona: id, dni: dni, nombre: limpiar_(nombre), apellidos: limpiar_(apellidos), email: email,
-    alta: new Date(), actualizado: new Date(), consentimientos: 'RGPD 6.1.a + 9.2.a · ' + fechaCorta_(new Date()), avisos: '' });
-  return { id: id, nombreCompleto: nombre + ' ' + apellidos, aviso: '' };
+  insertarBoveda_('Personas', { persona: id, dni: dni, nombre: limpiar_(nombre), apellidos: limpiar_(apellidos), email: email || '',
+    alta: new Date(), actualizado: new Date(), consentimientos: consentimiento, avisos: '' });
+  return { id: id, nombreCompleto: limpiar_(nombre) + ' ' + limpiar_(apellidos), aviso: '' };
 }
 
 function paginaVerificar_(codigo) {
-  codigo = codigo.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 40);
+  codigo = normalizarCodigo_(codigo);
   let r = null;
   if (codigo && instalado_()) {
     const i = leer_('Inscripciones').filter(function (x) { return String(x.codigo).toUpperCase() === codigo; })[0];
@@ -940,10 +1128,46 @@ function paginaVerificar_(codigo) {
   return paginaPublica_('verificar', { codigo: codigo, r: r });
 }
 
+/** Descarga pública: solo con el código privado que llegó al correo de la persona. */
+function api_publicoDescargar(codigo, clave) {
+  if (!instalado_()) throw new Error('La aplicación aún no está configurada.');
+  codigo = normalizarCodigo_(codigo);
+  clave = String(clave || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (clave.length === 8) clave = clave.slice(0, 4) + '-' + clave.slice(4);
+  const generico = 'El código no es correcto o el certificado ya no está disponible.';
+  if (!codigo || !/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(clave)) throw new Error('Escribe el código de 8 caracteres que aparece en tu correo.');
+  const cache = CacheService.getScriptCache();
+  const kc = 'des_' + huella_(codigo);
+  const n = Number(cache.get(kc) || 0);
+  if (n >= 20) throw new Error('Demasiados intentos en poco tiempo. Vuelve a probar dentro de una hora.');
+  cache.put(kc, String(n + 1), 3600);
+  return conCerrojo_(function () {
+    const i = leer_('Inscripciones').filter(function (x) { return x.codigo === codigo; })[0];
+    if (!i || i.estado !== 'enviado' || !i.descarga || !i.archivo) throw new Error(generico);
+    const intentos = Number(i.intentos) || 0;
+    if (intentos >= CONFIG.MAX_INTENTOS_DESCARGA) throw new Error('Se ha bloqueado la descarga por demasiados intentos. Pide al Servicio de Pastoral que te lo reenvíe.');
+    if (huella_(codigo + '|' + clave) !== i.descarga) {
+      actualizar_('Inscripciones', i._fila, { intentos: intentos + 1 });
+      const quedan = CONFIG.MAX_INTENTOS_DESCARGA - intentos - 1;
+      throw new Error('El código no es correcto.' + (quedan > 0 ? ' Te quedan ' + quedan + ' intento(s).' : ' La descarga queda bloqueada.'));
+    }
+    const c = { intentos: 0 };
+    if (!i.descargado) c.descargado = new Date();
+    actualizar_('Inscripciones', i._fila, c);
+    registrar_('público', 'Certificado descargado', codigo);
+    const a = actividad_(i.actividad) || {};
+    const blob = DriveApp.getFileById(i.archivo).getBlob();
+    return { nombre: nombreArchivo_(codigo, a.nombre), base64: Utilities.base64Encode(blob.getBytes()), actividad: a.nombre || '',
+      evaluacion: a.evaluacion === true ? urlApp_() + '?p=e&a=' + a.id : '' };
+  });
+}
+
 // ─────────────────────────────── MANTENIMIENTO ──────────────────────────────
 /** Diario: borra solicitudes de registro caducadas (datos personales que nadie confirmó). */
 function mantenimientoDiario() {
+  soloPropietaria_();
   if (!instalado_()) return;
+  esquema_();
   conCerrojo_(function () {
     const sh = libroBoveda_().getSheetByName('Pendientes');
     const pend = leerBoveda_('Pendientes');
@@ -954,28 +1178,31 @@ function mantenimientoDiario() {
 }
 
 // ─────────────────────────────── CORREOS ────────────────────────────────────
-function enviarCertificado_(p, i, actividad, codigo, adjunto) {
+function enviarDescarga_(p, i, a, codigo, clave) {
   const rolTexto = { 'Participante': 'tu participación en', 'Organización': 'tu colaboración en la organización de',
     'Coordinación': 'tu labor de coordinación en' }[i.rol] || 'tu participación en';
-  enviarEmail_(p.email, 'Tu certificado de Pastoral · C.U. SAFA', plantillaEmail_({
+  const url = urlApp_();
+  enviarEmail_(p.email, 'Tu certificado de Pastoral está listo · C.U. SAFA', plantillaEmail_({
     titulo: 'Tu certificado', titular: 'Tu certificado está listo', subtitular: CONFIG.NOMBRE_SERVICIO,
     parrafos: ['Hola, ' + esc_(p.nombre) + ':',
-      'Te enviamos adjunto, firmado electrónicamente, el certificado que acredita ' + rolTexto + ' <strong>«' + esc_(actividad) + '»</strong>.',
-      'Gracias por tu tiempo y por tu manera de estar. Ojalá lo vivido te acompañe también en tu camino como docente.'],
-    destacado: { icono: '📄', titulo: 'Código de verificación: ' + esc_(codigo),
-      lineas: ['Cualquiera puede comprobar su autenticidad en la página de verificación del centro.'] },
-    boton: { texto: 'Verificar certificado', url: urlApp_() + '?c=' + encodeURIComponent(codigo) },
-    cierre: 'Te recomendamos guardar el PDF en un lugar seguro.'
-  }), [adjunto]);
+      'Ya está firmado electrónicamente el certificado que acredita ' + rolTexto + ' <strong>«' + esc_(a.nombre || '') + '»</strong>.',
+      'Para descargarlo, pulsa el botón y escribe tu código privado. Este correo es solo para ti: no lo reenvíes.'],
+    destacado: { titulo: 'Tu código de descarga', grande: clave, lineas: ['Certificado ' + esc_(codigo)] },
+    boton: { texto: 'Descargar mi certificado', url: url + '?p=descargar&c=' + encodeURIComponent(codigo) },
+    extra: a.evaluacion === true ? { texto: '¿Nos cuentas cómo lo has vivido? Tu opinión es anónima y nos ayuda a mejorar.', enlace: 'Responder la evaluación', url: url + '?p=e&a=' + a.id } : null,
+    cierre: 'Gracias por tu tiempo y por tu manera de estar. Ojalá lo vivido te acompañe también en tu camino como docente.'
+  }));
 }
 
-function avisarFirmante_(k, n) {
+function avisarFirmante_(k, n, mensaje) {
   const f = leerAjuste_('firmantes', [])[k];
   if (!f || !f.email) return;
+  const parrafos = ['Hola:', 'Tienes <strong>' + n + '</strong> certificado(s) esperando tu firma.'];
+  if (mensaje) parrafos.push('<em>«' + esc_(mensaje) + '»</em>');
   enviarEmail_(f.email, 'Certificados pendientes de tu firma · Pastoral C.U. SAFA', plantillaEmail_({
     titulo: 'Certificados para firmar', titular: 'Certificados para firmar', subtitular: 'Firma ' + (k + 1) + ' · ' + esc_(f.cargo),
-    parrafos: ['Hola:', 'Tienes <strong>' + n + '</strong> certificado(s) esperando tu firma.'],
-    destacado: { icono: '✍️', titulo: 'Cómo firmarlos', lineas: [
+    parrafos: parrafos,
+    destacado: { titulo: 'Cómo firmarlos', lineas: [
       '1. Entra en la aplicación y abre «Firmar».', '2. Pulsa «Descargar todos» (un ZIP con los PDF).',
       '3. Fírmalos con Autofirma, en el hueco de «' + esc_(f.cargo) + '».',
       '4. Arrastra los PDF firmados a la misma pantalla. No cambies el nombre de los archivos.'] },
@@ -984,32 +1211,40 @@ function avisarFirmante_(k, n) {
   }));
 }
 
+const PALETA_LOGO = ['#136EA1', '#E33229', '#F29100', '#2BA962', '#E3007C', '#33228A', '#925F2F'];
+
 function plantillaEmail_(o) {
-  let filas = '<tr><td style="padding:32px 42px 12px;">' + o.parrafos.map(function (p, i) {
-    return '<p style="font-size:16px; line-height:1.7; margin:0 0 ' + (i === o.parrafos.length - 1 ? '0' : '17px') + ';">' + p + '</p>';
+  let filas = '<tr><td style="padding:30px 40px 10px;">' + o.parrafos.map(function (p, i) {
+    return '<p style="font-size:16px; line-height:1.7; margin:0 0 ' + (i === o.parrafos.length - 1 ? '0' : '16px') + ';">' + p + '</p>';
   }).join('') + '</td></tr>';
   if (o.destacado) {
-    filas += '<tr><td style="padding:22px 42px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eaf5fb; border-radius:11px;"><tr><td style="padding:22px 25px;">' +
-      '<div style="font-size:18px; line-height:1.3; font-weight:bold; color:#005b8f; text-align:center;">' + (o.destacado.icono || '') + ' ' + o.destacado.titulo + '</div>' +
-      (o.destacado.lineas || []).map(function (l) { return '<div style="font-size:15px; line-height:1.6; color:#465864; margin-top:8px;">' + l + '</div>'; }).join('') +
+    filas += '<tr><td style="padding:20px 40px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#EAF3F9; border-radius:12px;"><tr><td style="padding:22px 24px; text-align:center;">' +
+      '<div style="font-size:15px; line-height:1.3; font-weight:bold; color:#0E5680;">' + o.destacado.titulo + '</div>' +
+      (o.destacado.grande ? '<div style="font-family:Consolas, Menlo, monospace; font-size:32px; letter-spacing:6px; font-weight:bold; color:#1B2733; margin:12px 0 4px;">' + esc_(o.destacado.grande) + '</div>' : '') +
+      (o.destacado.lineas || []).map(function (l) { return '<div style="font-size:15px; line-height:1.6; color:#3D4B57; margin-top:6px; text-align:' + (o.destacado.grande ? 'center' : 'left') + ';">' + l + '</div>'; }).join('') +
       '</td></tr></table></td></tr>';
   }
   if (o.boton) {
-    filas += '<tr><td align="center" style="padding:10px 42px 14px;"><a href="' + o.boton.url + '" style="display:inline-block; background:#2e7d4f; color:#ffffff; text-decoration:none; font-size:15px; font-weight:bold; padding:12px 26px; border-radius:6px;">' + o.boton.texto + '</a></td></tr>';
+    filas += '<tr><td align="center" style="padding:8px 40px 12px;"><a href="' + o.boton.url + '" style="display:inline-block; background:#136EA1; color:#ffffff; text-decoration:none; font-size:16px; font-weight:bold; padding:13px 28px; border-radius:8px;">' + o.boton.texto + '</a></td></tr>';
   }
-  filas += '<tr><td style="padding:10px 42px 26px;">' + (o.cierre ? '<p style="font-size:16px; line-height:1.7; margin:0 0 17px;">' + o.cierre + '</p>' : '') +
+  if (o.extra) {
+    filas += '<tr><td style="padding:12px 40px 4px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #E2E7EC; border-radius:12px;"><tr><td style="padding:16px 20px; font-size:15px; line-height:1.6; color:#3D4B57;">' +
+      o.extra.texto + '<br><a href="' + o.extra.url + '" style="color:#0E5680; font-weight:bold;">' + o.extra.enlace + ' →</a></td></tr></table></td></tr>';
+  }
+  filas += '<tr><td style="padding:12px 40px 26px;">' + (o.cierre ? '<p style="font-size:16px; line-height:1.7; margin:0 0 16px;">' + o.cierre + '</p>' : '') +
     '<p style="font-size:16px; line-height:1.7; margin:0;">Un saludo,<br>' + CONFIG.NOMBRE_SERVICIO + '<br>Centro Universitario «Sagrada Familia»</p></td></tr>';
+  const franja = '<tr><td style="padding:0; font-size:0; line-height:0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>' +
+    PALETA_LOGO.map(function (c) { return '<td style="background:' + c + '; height:6px; line-height:6px; font-size:0;">&nbsp;</td>'; }).join('') + '</tr></table></td></tr>';
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>' + o.titulo + '</title></head>' +
-    '<body style="margin:0; padding:0; background-color:#eef3f7; font-family:Arial, Helvetica, sans-serif; color:#263746;">' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#eef3f7; margin:0; padding:25px 0;"><tr><td align="center">' +
-    '<table role="presentation" width="680" cellspacing="0" cellpadding="0" border="0" style="width:680px; max-width:94%; background:#ffffff; border-radius:14px; overflow:hidden;">' +
-    '<tr><td style="background:#2e7d4f; height:8px; line-height:8px; font-size:0;">&nbsp;</td></tr><tr><td style="background:#f2c14e; height:3px; line-height:3px; font-size:0;">&nbsp;</td></tr>' +
-    '<tr><td align="center" style="padding:26px 25px 6px;"><img src="cid:logo" width="230" alt="Pastoral · Centro Universitario Sagrada Familia" style="display:block; width:230px; max-width:70%; height:auto; margin:0 auto;"></td></tr>' +
-    '<tr><td align="center" style="padding:6px 35px 6px;"><div style="font-size:27px; line-height:1.25; font-weight:bold; color:#1f2a33;">' + o.titular + '</div>' +
-    '<div style="font-size:15px; line-height:1.5; color:#5d6b75; margin-top:8px;">' + o.subtitular + '</div></td></tr>' + filas +
-    '<tr><td align="center" style="background:#f6f8f7; padding:18px 30px; border-top:1px solid #e5ebe7;"><div style="font-size:13px; line-height:1.5; color:#5d6b75;"><strong>Centro Universitario «Sagrada Familia» · Úbeda</strong><br>' +
-    CONFIG.DIRECCION_PIE + '<br><em>' + esc_(CONFIG.LEMA) + '</em></div></td></tr>' +
-    '<tr><td style="background:#2e7d4f; height:6px; line-height:6px; font-size:0;">&nbsp;</td></tr>' +
+    '<body style="margin:0; padding:0; background-color:#F3F6F9; font-family:Arial, Helvetica, sans-serif; color:#1B2733;">' +
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#F3F6F9; margin:0; padding:24px 0;"><tr><td align="center">' +
+    '<table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px; max-width:94%; background:#ffffff; border-radius:14px; overflow:hidden;">' +
+    franja +
+    '<tr><td align="center" style="padding:26px 25px 6px;"><img src="cid:logo" width="220" alt="Pastoral · Centro Universitario Sagrada Familia" style="display:block; width:220px; max-width:70%; height:auto; margin:0 auto;"></td></tr>' +
+    '<tr><td align="center" style="padding:6px 35px 6px;"><div style="font-size:26px; line-height:1.25; font-weight:bold; color:#1B2733;">' + o.titular + '</div>' +
+    '<div style="font-size:15px; line-height:1.5; color:#5A6672; margin-top:8px;">' + o.subtitular + '</div></td></tr>' + filas +
+    '<tr><td align="center" style="background:#F6F8FA; padding:18px 30px; border-top:1px solid #E2E7EC;"><div style="font-size:13px; line-height:1.5; color:#5A6672;"><strong>Centro Universitario «Sagrada Familia» · Úbeda</strong><br>' +
+    CONFIG.DIRECCION_PIE + '<br><em>' + esc_(CONFIG.LEMA) + '</em></div></td></tr>' + franja +
     '</table></td></tr></table></body></html>';
 }
 
@@ -1020,9 +1255,10 @@ function enviarEmail_(para, asunto, html, adjuntos) {
   const texto = html.replace(/<title>[\s\S]*?<\/title>/i, '').replace(/<br\s*\/?>/gi, '\n')
     .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, '$2 ($1)').replace(/<\/(p|div|tr)>/gi, '\n').replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-    .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    .replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]*\n[\s]*/g, '\n\n').trim();
   MailApp.sendEmail(para, asunto, texto, opciones);
 }
+function cuotaCorreo_() { try { return MailApp.getRemainingDailyQuota(); } catch (err) { return 999; } }
 
 // ─────────────────────────────── DATOS (hojas como tablas) ──────────────────
 function libroDatos_() { return SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('LIBRO_DATOS')); }
@@ -1099,6 +1335,7 @@ function cursoAcademico_(fecha) {
   return a + '-' + String((a + 1) % 100).padStart(2, '0');
 }
 function normalizarDni_(v) { return String(v || '').toUpperCase().replace(/[\s.\-]/g, ''); }
+function normalizarCodigo_(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 40); }
 function dniValido_(dni) {
   const m = String(dni).match(/^([0-9XYZ])(\d{7})([A-Z])$/);
   if (!m) return false;
@@ -1107,6 +1344,7 @@ function dniValido_(dni) {
 function enmascararDni_(d) { d = String(d || ''); return d ? '•••••' + d.slice(-4) : ''; }
 function enmascararEmail_(e) { e = String(e || ''); const p = e.split('@'); return p.length === 2 ? p[0].slice(0, 2) + '•••@' + p[1] : ''; }
 function bytesAleatorios_() { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Utilities.getUuid() + Date.now()); }
+function hexAleatorio_() { return bytesAleatorios_().map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join(''); }
 function huella_(t) {
   return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(t), Utilities.Charset.UTF_8)
     .map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('');
@@ -1122,6 +1360,13 @@ function nuevoCodigo_(curso, usados) {
   }
   throw new Error('No se pudo generar un código único');
 }
+/** Código privado de descarga: 8 caracteres sin letras ambiguas (XXXX-XXXX). Solo se guarda su huella. */
+function nuevaClave_() {
+  const b = bytesAleatorios_();
+  let s = '';
+  for (let i = 0; i < 8; i++) s += ALFABETO_CODIGO.charAt((b[i] + 256) % ALFABETO_CODIGO.length);
+  return s.slice(0, 4) + '-' + s.slice(4);
+}
 /** Nombre del PDF: código + actividad, sin espacios ni caracteres raros (Autofirma, ZIP y Windows lo agradecen). */
 function nombreArchivo_(codigo, actividad) { return codigo + '_' + slug_(actividad).slice(0, 50).replace(/ /g, '-') + '.pdf'; }
 function limpiarNombre_(t) { return slug_(t).slice(0, 80) || 'archivo'; }
@@ -1133,7 +1378,7 @@ function capitalizar_(texto) {
   }).join(' ').slice(0, 120);
 }
 function normalizarTexto_(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
-function limpiar_(t) { const s = String(t == null ? '' : t).trim().slice(0, 2000); return /^[=+\-@\t\r]/.test(s) ? "'" + s : s; }
+function limpiar_(t) { const s = String(t == null ? '' : t).trim().slice(0, 3000); return /^[=+\-@\t\r]/.test(s) ? "'" + s : s; }
 function iniciales_(nombre) {
   return String(nombre || '').replace(/^'/, '').split(/\s+/)
     .filter(function (p) { return p && ['de', 'del', 'la', 'las', 'los', 'y'].indexOf(p.toLowerCase()) < 0; })

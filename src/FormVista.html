@@ -1,0 +1,83 @@
+<!-- Formularios propios: el mismo dibujo en la página pública y en la vista previa del panel. -->
+<style>
+  .fv { --fv: #136EA1; }
+  .fv-q { border: 0; margin: 0 0 22px; padding: 0; min-width: 0; }
+  .fv-q legend { font-weight: 700; font-size: 16px; line-height: 1.4; margin-bottom: 8px; padding: 0; color: var(--texto); }
+  .fv-ob { color: var(--mal); margin-left: 2px; }
+  .fv-ayuda { margin: -2px 0 10px; font-size: 14px; color: var(--suave); }
+  .fv-escala { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .fv-escala label { position: relative; }
+  .fv-escala input, .fv-opc input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .fv-escala span { display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 12px; border: 1.5px solid var(--borde-fuerte); background: #fff;
+    font-family: var(--titulos); font-weight: 600; font-size: 19px; cursor: pointer; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+  .fv-escala label:hover span { border-color: var(--fv); }
+  .fv-escala input:checked + span { background: var(--fv); border-color: var(--fv); color: #fff; }
+  .fv-escala input:focus-visible + span, .fv-opc input:focus-visible + span { box-shadow: var(--foco); }
+  .fv-extremos { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--suave); margin-top: 6px; }
+  .fv-opc { display: grid; gap: 8px; }
+  .fv-opc label { position: relative; }
+  .fv-opc span { display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 11px 14px; border-radius: 12px; border: 1.5px solid var(--borde-fuerte); background: #fff; cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease; font-weight: 600; }
+  .fv-opc span::before { content: ''; flex: none; width: 20px; height: 20px; border: 2px solid #9aa8b5; border-radius: 50%; background: #fff; transition: all .15s ease; }
+  .fv-opc.multi span::before { border-radius: 6px; }
+  .fv-opc label:hover span { border-color: var(--fv); }
+  .fv-opc input:checked + span { border-color: var(--fv); background: color-mix(in srgb, var(--fv) 8%, #fff); }
+  .fv-opc input:checked + span::before { border-color: var(--fv); background: var(--fv); box-shadow: inset 0 0 0 3px #fff; }
+  .fv-opc.multi input:checked + span::before { box-shadow: none; background: var(--fv) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/14px no-repeat; }
+  .fv-q.fv-mal .fv-escala span, .fv-q.fv-mal .fv-opc span, .fv-q.fv-mal input, .fv-q.fv-mal textarea { border-color: var(--mal); }
+  .fv-err { color: var(--mal); font-size: 13.5px; font-weight: 700; margin: 6px 0 0; min-height: 0; }
+  .fv-err:empty { display: none; }
+</style>
+<script>
+(function () {
+  'use strict';
+  const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function pregunta(q, pre) {
+    const id = pre + q.id, ob = q.obligatoria ? '<span class="fv-ob" aria-hidden="true">*</span><span class="sr"> (obligatoria)</span>' : '';
+    let c = '';
+    if (q.tipo === 'escala') {
+      c = '<div class="fv-escala" role="radiogroup" aria-labelledby="' + id + '_l">' + [1, 2, 3, 4, 5].map((n) =>
+        '<label><input type="radio" name="' + id + '" value="' + n + '"><span>' + n + '</span></label>').join('') + '</div>' +
+        '<div class="fv-extremos" aria-hidden="true"><span>Muy poco</span><span>Muchísimo</span></div>';
+    } else if (q.tipo === 'unica' || q.tipo === 'multiple') {
+      const t = q.tipo === 'unica' ? 'radio' : 'checkbox';
+      c = '<div class="fv-opc' + (t === 'checkbox' ? ' multi' : '') + '">' + q.opciones.map((o) =>
+        '<label><input type="' + t + '" name="' + id + '" value="' + esc(o) + '"><span>' + esc(o) + '</span></label>').join('') + '</div>';
+    } else if (q.tipo === 'corto') {
+      c = '<input type="text" id="' + id + '" name="' + id + '" maxlength="200" aria-labelledby="' + id + '_l">';
+    } else {
+      c = '<textarea id="' + id + '" name="' + id + '" maxlength="1500" rows="4" aria-labelledby="' + id + '_l"></textarea>';
+    }
+    return '<fieldset class="fv-q" data-q="' + esc(q.id) + '" data-tipo="' + q.tipo + '"><legend id="' + id + '_l">' + esc(q.texto) + ob + '</legend>' +
+      (q.ayuda ? '<p class="fv-ayuda">' + esc(q.ayuda) + '</p>' : '') + c + '<p class="fv-err" role="alert"></p></fieldset>';
+  }
+  window.FV = {
+    html(def, pre) { return (def.preguntas || []).map((q) => pregunta(q, pre || 'fv_')).join(''); },
+    montar(el, def, pre) { el.classList.add('fv'); el.style.setProperty('--fv', def.color || '#136EA1'); el.innerHTML = this.html(def, pre); },
+    leer(el, def, pre) {
+      pre = pre || 'fv_';
+      const r = {};
+      (def.preguntas || []).forEach((q) => {
+        const n = pre + q.id;
+        if (q.tipo === 'escala' || q.tipo === 'unica') { const x = el.querySelector('input[name="' + n + '"]:checked'); if (x) r[q.id] = q.tipo === 'escala' ? Number(x.value) : x.value; }
+        else if (q.tipo === 'multiple') { const l = [...el.querySelectorAll('input[name="' + n + '"]:checked')].map((x) => x.value); if (l.length) r[q.id] = l; }
+        else { const x = el.querySelector('[name="' + n + '"]'); if (x && x.value.trim()) r[q.id] = x.value.trim(); }
+      });
+      return r;
+    },
+    /** Marca las obligatorias sin responder. Devuelve el primer bloque con error (o null). */
+    comprobar(el, def, r) {
+      let primero = null;
+      (def.preguntas || []).forEach((q) => {
+        const b = el.querySelector('.fv-q[data-q="' + q.id + '"]');
+        if (!b) return;
+        const mal = q.obligatoria && r[q.id] === undefined;
+        b.classList.toggle('fv-mal', mal);
+        b.querySelector('.fv-err').textContent = mal ? 'Esta pregunta es obligatoria.' : '';
+        if (mal && !primero) primero = b;
+      });
+      return primero;
+    }
+  };
+})();
+</script>

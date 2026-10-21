@@ -1,89 +1,84 @@
 <!-- Editor de diseño y generación: vista incrustada en el panel (Panel.html). -->
 <style>
-  :root {
-    --azul: #2e7d4f; --azul-osc: #1f5c39; --azul-claro: #e8f3ec; --texto: #1f2a33; --suave: #5d6b75;
-    --borde: #d9e2e9; --fondo: #f3f6f9; --ok: #0b7a45; --mal: #b3261e; --aviso: #8a5a00;
-  }
-  * { box-sizing: border-box; }
-  #vistaEditor { position: relative; height: 100vh; font-size: 13px; }
+  /* Todo el estilo del editor va acotado a #vistaEditor para no pisar el del panel. */
+  #vistaEditor { position: relative; height: 100vh; font-size: 14px; }
   #vistaEditor .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-  #vistaEditor header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--borde); }
-  header select { min-width: 360px; }
-  .pestanas { display: flex; gap: 4px; margin-left: auto; }
-  .pestanas button { border: 1px solid var(--borde); background: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--suave); }
-  .pestanas button.activa { background: var(--azul); border-color: var(--azul); color: #fff; }
-  .contador { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #f2a33a; color: #fff; font-size: 11px; margin-left: 6px; }
-  #vistaEditor main { display: grid; grid-template-columns: 440px 1fr; min-height: 0; }
-  .panel { overflow-y: auto; background: #fff; border-right: 1px solid var(--borde); display: flex; flex-direction: column; }
-  .panel-scroll { flex: 1; overflow-y: auto; padding: 6px 16px 16px; }
-  .panel-pie { border-top: 1px solid var(--borde); padding: 10px 16px; background: #fafcfd; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  details { border-bottom: 1px solid var(--borde); padding: 10px 0; }
-  summary { font-weight: 700; cursor: pointer; color: var(--azul-osc); font-size: 13.5px; list-style: none; }
-  summary::-webkit-details-marker { display: none; }
-  summary::before { content: '▸ '; color: var(--suave); }
-  details[open] summary::before { content: '▾ '; }
-  label { display: block; font-weight: 600; margin: 10px 0 4px; font-size: 12px; color: var(--suave); }
-  input[type=text], textarea, select { width: 100%; padding: 7px 9px; border: 1px solid var(--borde); border-radius: 6px; font: inherit; color: var(--texto); background: #fff; }
-  textarea { resize: vertical; min-height: 58px; line-height: 1.45; }
-  input:focus, textarea:focus, select:focus { outline: 2px solid #9cc0e4; border-color: var(--azul); }
-  .fila { display: flex; gap: 8px; align-items: center; }
-  .fila > * { flex: 1; }
-  .ayuda { font-size: 11.5px; color: var(--suave); margin-top: 4px; line-height: 1.4; }
-  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-  .chip { border: 1px solid var(--borde); background: var(--azul-claro); color: var(--azul-osc); border-radius: 12px; padding: 2px 8px; font-size: 11px; cursor: pointer; font-family: monospace; }
-  .plantillas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .plantilla { border: 2px solid var(--borde); border-radius: 8px; padding: 6px 4px 5px; cursor: pointer; text-align: center; font-size: 10.5px; background: #fff; color: var(--suave); }
-  .plantilla.activa { border-color: var(--azul); color: var(--azul-osc); font-weight: 700; }
-  .plantilla canvas { display: block; margin: 0 auto 4px; border: 1px solid #e5ebf0; }
-  .colores { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .muestra { width: 30px; height: 22px; border-radius: 5px; cursor: pointer; border: 1px solid rgba(0,0,0,.15); position: relative; overflow: hidden; }
-  .muestra span { position: absolute; right: 0; bottom: 0; width: 40%; height: 40%; }
-  input[type=color] { width: 44px; height: 30px; padding: 0; border: 1px solid var(--borde); border-radius: 6px; background: #fff; }
-  .boton { border: 1px solid var(--borde); background: #fff; padding: 7px 12px; border-radius: 7px; font: inherit; font-weight: 600; cursor: pointer; color: var(--texto); }
-  .boton:hover { background: var(--fondo); }
-  .boton.primario { background: var(--azul); border-color: var(--azul); color: #fff; }
-  .boton.primario:hover { background: var(--azul-osc); }
-  .boton.verde { background: var(--ok); border-color: var(--ok); color: #fff; }
-  .boton:disabled { opacity: .5; cursor: default; }
-  .boton.peq { padding: 4px 8px; font-size: 11.5px; }
-  .interruptor { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-weight: 600; color: var(--texto); font-size: 12.5px; }
-  .interruptor input { width: 16px; height: 16px; }
-  .vista { display: flex; flex-direction: column; min-height: 0; }
-  .vista-barra { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
-  .vista-barra select { width: auto; min-width: 200px; }
-  .lienzo { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 18px; }
-  .lienzo canvas { box-shadow: 0 6px 24px rgba(20,40,60,.18); background: #fff; }
-  .avisos { font-size: 12px; color: var(--aviso); flex-basis: 100%; min-height: 16px; }
-  .estado-guardado { font-size: 12px; color: var(--suave); margin-left: auto; }
-  .estado-guardado.sin { color: var(--aviso); font-weight: 700; }
-  .ia { background: #f7f3ff; border: 1px solid #e0d6f5; border-radius: 8px; padding: 10px; margin-top: 8px; }
-  .ia h4 { margin: 0 0 4px; font-size: 12.5px; color: #5b2c83; }
-  .ia textarea { min-height: 46px; }
-  .persona { display: grid; grid-template-columns: 22px 1fr 1fr 34px; gap: 5px 6px; align-items: center; padding: 8px 6px; border: 1px solid var(--borde); border-radius: 8px; margin-bottom: 6px; }
-  .persona input[type=text], .persona select { padding: 5px 7px; font-size: 12px; }
-  .persona .sel { grid-row: span 2; width: 16px; height: 16px; }
-  .persona .ver { grid-row: span 2; height: 100%; }
-  .persona.mal input.dni { border-color: var(--mal); background: #fff4f3; }
-  .persona.hecho { opacity: .5; }
-  .persona .aviso-email { grid-column: 2 / span 2; font-size: 11px; color: var(--mal); }
-  .barra-progreso { height: 10px; background: #e5ebf0; border-radius: 6px; overflow: hidden; margin: 10px 0 6px; }
-  .barra-progreso div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
-  .registro { font-size: 12px; max-height: 160px; overflow: auto; background: var(--fondo); border-radius: 6px; padding: 8px; white-space: pre-wrap; }
-  .vacio { padding: 30px 10px; text-align: center; color: var(--suave); }
-  .cargando { position: absolute; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 10; font-weight: 600; color: var(--azul-osc); }
-  .oculto { display: none !important; }
-  .nota { background: var(--azul-claro); border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.45; margin: 10px 0; }
-  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f2a33; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 12.5px; z-index: 20; }
+  #vistaEditor header { display: flex; align-items: center; gap: 14px; padding: 12px 18px; background: #fff; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+  #vistaEditor header h1 { font-size: 19px; margin: 0; }
+  #vistaEditor header select { width: auto; min-width: 300px; max-width: 100%; }
+  #vistaEditor .pestanas { display: inline-flex; gap: 4px; padding: 4px; background: #e9eef2; border-radius: 11px; margin-left: auto; }
+  #vistaEditor .pestanas button { border: 0; background: none; min-height: 38px; padding: 6px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; color: var(--suave); display: inline-flex; align-items: center; gap: 8px; }
+  #vistaEditor .pestanas button.activa { background: #fff; color: var(--azul-osc); box-shadow: 0 1px 3px rgba(16,40,64,.14); }
+  #vistaEditor .contador { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--aviso-claro); color: var(--aviso); font-size: 12px; }
+  #vistaEditor main { display: grid; grid-template-columns: 450px 1fr; min-height: 0; }
+  #vistaEditor .panel { overflow-y: auto; background: #fff; border-right: 1px solid var(--borde); display: flex; flex-direction: column; min-height: 0; }
+  #vistaEditor .panel-scroll { flex: 1; overflow-y: auto; padding: 4px 18px 18px; }
+  #vistaEditor .panel-pie { border-top: 1px solid var(--borde); padding: 12px 18px; background: #fbfcfd; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #vistaEditor details { border-bottom: 1px solid var(--borde); padding: 12px 0; }
+  #vistaEditor summary { font-family: var(--titulos); font-weight: 600; cursor: pointer; color: var(--texto); font-size: 15.5px; list-style: none; display: flex; align-items: center; gap: 8px; min-height: 32px; }
+  #vistaEditor summary::-webkit-details-marker { display: none; }
+  #vistaEditor summary::after { content: ''; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--suave); border-bottom: 2px solid var(--suave); transform: rotate(45deg); transition: transform .15s ease; }
+  #vistaEditor details[open] summary::after { transform: rotate(-135deg); }
+  #vistaEditor label.e { display: block; font-weight: 700; margin: 12px 0 5px; font-size: 13px; color: var(--texto); }
+  #vistaEditor input[type=text], #vistaEditor textarea, #vistaEditor select { min-height: 40px; padding: 8px 10px; font-size: 14px; }
+  #vistaEditor textarea { min-height: 62px; }
+  #vistaEditor .fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #vistaEditor .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  #vistaEditor .chip-campo { border: 1px solid var(--azul-borde); background: #fff; color: var(--azul-osc); border-radius: 12px; padding: 3px 9px; font-size: 12px; cursor: pointer; font-family: ui-monospace, Menlo, monospace; }
+  #vistaEditor .chip-campo:hover { background: var(--azul-claro); }
+  #vistaEditor .plantillas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  #vistaEditor .plantilla { border: 2px solid var(--borde); border-radius: 10px; padding: 7px 4px 6px; cursor: pointer; text-align: center; font-size: 11.5px; background: #fff; color: var(--suave); font-weight: 600; }
+  #vistaEditor .plantilla:hover { border-color: var(--azul-borde); }
+  #vistaEditor .plantilla.activa { border-color: var(--azul); color: var(--azul-osc); }
+  #vistaEditor .plantilla canvas { display: block; margin: 0 auto 4px; border: 1px solid #e5ebf0; }
+  #vistaEditor .colores { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  #vistaEditor .muestra { width: 32px; height: 26px; border-radius: 7px; cursor: pointer; border: 1px solid rgba(0,0,0,.15); position: relative; overflow: hidden; padding: 0; }
+  #vistaEditor .muestra span { position: absolute; right: 0; bottom: 0; width: 40%; height: 40%; }
+  #vistaEditor input[type=color] { width: 46px; height: 34px; padding: 2px; border: 1px solid var(--borde-fuerte); border-radius: 8px; background: #fff; min-height: 0; }
+  #vistaEditor .casilla { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-weight: 600; font-size: 14px; cursor: pointer; }
+  #vistaEditor .casilla input { width: 18px; height: 18px; accent-color: var(--azul); }
+  #vistaEditor .vista-prev { display: flex; flex-direction: column; min-height: 0; background: #eef2f6; }
+  #vistaEditor .vista-barra { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+  #vistaEditor .vista-barra select { width: auto; min-width: 190px; }
+  #vistaEditor .lienzo { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
+  #vistaEditor .lienzo canvas { box-shadow: 0 10px 30px rgba(20,40,60,.18); background: #fff; border-radius: 2px; }
+  #vistaEditor .avisos { font-size: 13px; color: var(--aviso); font-weight: 600; flex-basis: 100%; min-height: 0; }
+  #vistaEditor .avisos:empty { display: none; }
+  #vistaEditor .estado-guardado { font-size: 13px; color: var(--suave); font-weight: 600; }
+  #vistaEditor .estado-guardado.sin { color: var(--aviso); }
+  #vistaEditor .ia-caja { background: linear-gradient(135deg, #f3f1fb, #eef6fb); border: 1px solid #dcd7f1; border-radius: 12px; padding: 12px; margin-top: 10px; }
+  #vistaEditor .ia-caja h4 { margin: 0 0 6px; font-size: 14px; color: var(--indigo); display: flex; align-items: center; gap: 6px; }
+  #vistaEditor .ia-caja textarea { min-height: 50px; }
+  #vistaEditor .persona { display: grid; grid-template-columns: 24px 1fr 1fr 36px; gap: 6px; align-items: center; padding: 10px 8px; border: 1px solid var(--borde); border-radius: 10px; margin-bottom: 8px; }
+  #vistaEditor .persona input[type=text], #vistaEditor .persona select { min-height: 36px; padding: 5px 8px; font-size: 13px; }
+  #vistaEditor .persona .sel { grid-row: span 2; width: 18px; height: 18px; accent-color: var(--azul); }
+  #vistaEditor .persona .ver { grid-row: span 2; height: 100%; min-height: 0; }
+  #vistaEditor .persona.mal input.dni { border-color: var(--mal); background: #fff6f5; }
+  #vistaEditor .persona.hecho { opacity: .5; }
+  #vistaEditor .persona .aviso-email { grid-column: 2 / span 2; font-size: 12px; color: var(--mal); font-weight: 600; }
+  #vistaEditor .barra-progreso { height: 10px; background: #e5ebf0; border-radius: 6px; overflow: hidden; margin: 10px 0 6px; }
+  #vistaEditor .barra-progreso div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
+  #vistaEditor .registro { font-size: 12.5px; max-height: 170px; overflow: auto; background: var(--fondo); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; }
+  #vistaEditor .vacio-e { padding: 30px 10px; text-align: center; color: var(--suave); }
+  #vistaEditor .cargando { position: absolute; inset: 0; background: rgba(244,247,250,.88); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 10; font-weight: 700; color: var(--azul-osc); text-align: center; padding: 20px; }
+  #vistaEditor .nota { margin: 10px 0; font-size: 13px; display: block; }
+  @media (max-width: 1000px) {
+    #vistaEditor, #vistaEditor .app { height: auto; }
+    #vistaEditor main { grid-template-columns: 1fr; }
+    #vistaEditor .lienzo { min-height: 520px; }
+    #vistaEditor header select { min-width: 0; width: 100%; }
+    #vistaEditor .pestanas { margin-left: 0; }
+  }
 </style>
 <section id="vistaEditor" class="vista oculto">
 <div class="app">
   <header>
-    <strong style="color:var(--azul-osc)">Actividad</strong>
-    <select id="actividad"></select>
+    <h1>Diseñar y generar</h1>
+    <select id="actividad" aria-label="Actividad"></select>
     <span class="estado-guardado" id="estadoGuardado"></span>
     <div class="pestanas">
-      <button id="tabDiseno" class="activa">🎨 Diseño</button>
-      <button id="tabGenerar">🖨️ Generar <span class="contador" id="contador">0</span></button>
+      <button id="tabDiseno" class="activa"><svg class="ic peq" aria-hidden="true"><use href="#i-paleta"/></svg>Diseño</button>
+      <button id="tabGenerar"><svg class="ic peq" aria-hidden="true"><use href="#i-certificado"/></svg>Generar <span class="contador" id="contador">0</span></button>
     </div>
   </header>
   <main>
@@ -92,71 +87,71 @@
       <div class="panel-scroll">
         <details open>
           <summary>Estilo</summary>
-          <label>Plantilla</label>
+          <label class="e">Plantilla</label>
           <div class="plantillas" id="plantillas"></div>
-          <label>Colores</label>
+          <label class="e">Colores</label>
           <div class="fila" style="flex:0">
             <div style="flex:0"><input type="color" id="color" title="Color principal"></div>
             <div style="flex:0"><input type="color" id="acento" title="Color de acento"></div>
             <div class="ayuda" style="flex:1">Principal (banda, nombre) y acento (filetes).<br>O elige una combinación:</div>
           </div>
           <div class="colores" id="presets"></div>
-          <label>Tipografía</label>
+          <label class="e">Tipografía</label>
           <select id="tipografia"></select>
           <div id="bloqueBanda">
-            <label>Texto de la banda lateral</label>
+            <label class="e">Texto de la banda lateral</label>
             <input type="text" id="textoBanda">
           </div>
         </details>
 
         <details>
           <summary>Fondo, logos y QR</summary>
-          <label>Fondo de página (imagen creada con otra IA, por ejemplo)</label>
+          <label class="e">Fondo de página (imagen creada con otra IA, por ejemplo)</label>
           <div class="fila">
-            <button class="boton" id="btnFondo">📁 Subir fondo…</button>
-            <button class="boton" id="btnQuitarFondo">Quitar fondo</button>
+            <button class="boton peq" id="btnFondo"><svg class="ic peq" aria-hidden="true"><use href="#i-subir"/></svg>Subir fondo…</button>
+            <button class="boton peq" id="btnQuitarFondo">Quitar fondo</button>
           </div>
           <input type="file" id="archivoFondo" accept="image/png,image/jpeg,image/webp" class="oculto">
           <div class="ayuda">Se recorta y adapta solo a A4 vertical. Consejo: con un fondo propio, la plantilla «Limpio» suele quedar mejor.</div>
-          <label>Velo blanco bajo el texto: <span id="veloValor">0</span> %</label>
+          <label class="e">Velo blanco bajo el texto: <span id="veloValor">0</span> %</label>
           <input type="range" id="velo" min="0" max="90" step="5" style="width:100%">
-          <div class="ia">
-            <h4>✨ Crear el fondo con IA</h4>
+          <div class="ia-caja">
+            <h4><svg class="ic peq" aria-hidden="true"><use href="#i-ia"/></svg>Crear el fondo con otra IA de imágenes</h4>
             <input type="text" id="ideaFondo" placeholder="Idea: acuarela suave de olivos y luz de amanecer…">
             <div class="fila" style="margin-top:6px"><button class="boton peq" id="btnPromptFondo">Copiar instrucción para la IA</button></div>
             <textarea id="promptFondo" class="oculto" readonly></textarea>
           </div>
-          <label class="interruptor"><input type="checkbox" id="logoSuperior"> Logo superior</label>
+          <label class="casilla"><input type="checkbox" id="logoSuperior"> Logo superior</label>
           <div class="fila">
             <button class="boton peq" id="btnLogo">Cambiar logo superior…</button>
             <button class="boton peq" id="btnLogoOriginal">Volver al logo de Pastoral</button>
           </div>
           <input type="file" id="archivoLogo" accept="image/png,image/jpeg" class="oculto">
-          <label class="interruptor"><input type="checkbox" id="logosPie"> Logos SAFA y UJA al pie</label>
-          <label class="interruptor"><input type="checkbox" id="qr"> Código QR de verificación</label>
+          <label class="casilla"><input type="checkbox" id="logosPie"> Logos SAFA y UJA al pie</label>
+          <label class="casilla"><input type="checkbox" id="qr"> Código QR de verificación</label>
         </details>
 
         <details open>
           <summary>Textos del certificado</summary>
           <div class="nota">Escribe <b>**así**</b> para negrita y <i>*así*</i> para cursiva. Los campos entre llaves se rellenan solos: pulsa uno para insertarlo donde está el cursor.
             <div class="chips" id="chips"></div></div>
-          <label>Rótulo superior (opcional)</label><input type="text" id="etiqueta">
-          <label>Título</label><input type="text" id="titulo">
-          <label>Frase de entrada</label><input type="text" id="intro">
-          <label>Línea del DNI</label><input type="text" id="lineaDni">
-          <label>Párrafo principal</label><textarea id="cuerpo"></textarea>
-          <label>Texto sobre la actividad (cada línea, un párrafo)</label>
+          <label class="e">Rótulo superior (opcional)</label><input type="text" id="etiqueta">
+          <label class="e">Título</label><input type="text" id="titulo">
+          <label class="e">Frase de entrada</label><input type="text" id="intro">
+          <label class="e">Línea del DNI</label><input type="text" id="lineaDni">
+          <label class="e">Párrafo principal</label><textarea id="cuerpo"></textarea>
+          <label class="e">Texto sobre la actividad (cada línea, un párrafo)</label>
           <textarea id="descripcion" style="min-height:120px" placeholder="Pega aquí el texto generado con IA…"></textarea>
-          <div class="ia">
-            <h4>✨ Texto con IA</h4>
+          <div class="ia-caja">
+            <h4><svg class="ic peq" aria-hidden="true"><use href="#i-ia"/></svg>Texto con IA</h4>
             <textarea id="notasIA" placeholder="Qué se hizo, con quién, objetivos… (cuanto más concreto, mejor texto)"></textarea>
-            <div class="fila" style="margin-top:6px"><button class="boton peq" id="btnPromptTexto">Copiar instrucción para la IA</button></div>
+            <div class="ayuda" id="iaContexto"></div><div class="fila" style="margin-top:8px"><button class="boton peq ia" id="btnIaTexto"><svg class="ic peq" aria-hidden="true"><use href="#i-ia"/></svg>Redactar con IA</button><button class="boton peq" id="btnPromptTexto"><svg class="ic peq" aria-hidden="true"><use href="#i-copiar"/></svg>Copiar instrucción para otra IA</button></div>
             <textarea id="promptTexto" class="oculto" readonly></textarea>
-            <div class="ayuda">Pégala en Claude u otra IA, revisa el resultado y pégalo arriba.</div>
+            <div class="ayuda">El texto aparece arriba, en «Texto sobre la actividad»: revísalo siempre antes de generar.</div>
           </div>
-          <label>Frase de horas (solo si la actividad tiene horas)</label><textarea id="textoHoras"></textarea>
-          <label>Frase de ECTS (solo si la actividad tiene ECTS)</label><textarea id="textoEcts"></textarea>
-          <label>Cierre (opcional, por ejemplo con la fecha)</label>
+          <label class="e">Frase de horas (solo si la actividad tiene horas)</label><textarea id="textoHoras"></textarea>
+          <label class="e">Frase de ECTS (solo si la actividad tiene ECTS)</label><textarea id="textoEcts"></textarea>
+          <label class="e">Cierre (opcional, por ejemplo con la fecha)</label>
           <textarea id="cierre" placeholder="Y para que así conste, se expide el presente certificado en Úbeda, a {fecha}."></textarea>
         </details>
 
@@ -174,9 +169,9 @@
         </details>
       </div>
       <div class="panel-pie">
-        <button class="boton primario" id="btnGuardar">💾 Guardar diseño</button>
-        <label class="interruptor" style="margin:0"><input type="checkbox" id="comoBase"> usar también como base</label>
-        <button class="boton peq" id="btnBase" title="Descarta los cambios no guardados">Deshacer cambios</button>
+        <button class="boton primario" id="btnGuardar"><svg class="ic peq" aria-hidden="true"><use href="#i-ok"/></svg>Guardar diseño</button>
+        <label class="casilla" style="margin:0"><input type="checkbox" id="comoBase"> usar también como base</label>
+        <button class="boton peq fantasma" id="btnBase" title="Descarta los cambios no guardados">Deshacer cambios</button>
       </div>
     </section>
 
@@ -184,9 +179,9 @@
     <section class="panel oculto" id="panelGenerar">
       <div class="panel-scroll">
         <div class="nota">Aquí están las personas <b>validadas</b> en «Inscripciones» para esta actividad. Puedes corregir nombre, apellidos, DNI y rol antes de generar: las correcciones se guardan en la bóveda.</div>
-        <div id="sinPendientes" class="vacio oculto">No hay certificados pendientes en esta actividad.<br>Valida a las personas en «Inscripciones».</div>
+        <div id="sinPendientes" class="vacio-e oculto">No hay certificados pendientes en esta actividad.<br>Valida a las personas en «Inscripciones».</div>
         <div id="tablaCola">
-          <label class="interruptor"><input type="checkbox" id="todos" checked> Seleccionar todas</label>
+          <label class="casilla"><input type="checkbox" id="todos" checked> Seleccionar todas</label>
           <div id="listaCola"></div>
         </div>
         <div id="progreso" class="oculto">
@@ -196,25 +191,26 @@
         </div>
       </div>
       <div class="panel-pie">
-        <button class="boton verde" id="btnGenerar">🖨️ Generar certificados</button>
-        <span class="ayuda">Mantén esta ventana abierta mientras se generan.</span>
+        <button class="boton exito" id="btnGenerar"><svg class="ic peq" aria-hidden="true"><use href="#i-certificado"/></svg>Generar aquí</button>
+        <button class="boton" id="btnServidor" title="Los genera el servidor: puedes cerrar la ventana"><svg class="ic peq" aria-hidden="true"><use href="#i-rayo"/></svg>En segundo plano</button>
+        <span class="ayuda" style="flex-basis:100%">«Generar aquí» ve el progreso (no cierres la ventana). «En segundo plano» lo hace el servidor y te avisa por correo.</span>
       </div>
     </section>
 
     <!-- ───────────── VISTA PREVIA ───────────── -->
-    <section class="vista">
+    <section class="vista-prev">
       <div class="vista-barra">
         <strong>Vista previa con</strong>
-        <select id="verCon"></select>
-        <select id="verRol"></select>
-        <button class="boton peq" id="btnPrueba">📄 Guardar PDF de prueba</button>
+        <select id="verCon" aria-label="Persona de la vista previa"></select>
+        <select id="verRol" aria-label="Rol de la vista previa"></select>
+        <button class="boton peq" id="btnPrueba"><svg class="ic peq" aria-hidden="true"><use href="#i-descargar"/></svg>PDF de prueba</button>
         <span class="avisos" id="avisos"></span>
       </div>
       <div class="lienzo" id="lienzo"><canvas id="canvas"></canvas></div>
     </section>
   </main>
 </div>
-<div class="cargando" id="cargando"><div>Cargando el editor…</div><div class="ayuda" id="cargandoDetalle"></div></div>
+<div class="cargando" id="cargando"><div class="girando"></div><div>Cargando el editor…</div><div class="ayuda" id="cargandoDetalle"></div></div>
 <textarea id="portapapeles" style="position:fixed;left:-9999px;top:0"></textarea>
 </section>
 
@@ -223,7 +219,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const PRESETS = [
-    ['Verde Pastoral', '#2e7d4f', '#f2c14e'], ['Azul SAFA', '#2a6096', '#f2a33a'], ['Adviento', '#5b2c83', '#c9a227'], ['Navidad', '#a61e2a', '#d4af37'],
+    ['Verde Pastoral', '#2e7d4f', '#f2c14e'], ['Azul Pastoral', '#136EA1', '#F29100'], ['Azul SAFA', '#2a6096', '#f2a33a'], ['Adviento', '#5b2c83', '#c9a227'], ['Navidad', '#a61e2a', '#d4af37'],
     ['Cuaresma', '#6b3f86', '#a7a9ac'], ['Pascua', '#b8860b', '#2a6096'], ['Ordinario', '#3f8f3a', '#e8d8a8'],
     ['Solidaridad', '#c0392b', '#2a6096'], ['Voluntariado', '#d35400', '#2a6096'], ['Mar', '#0f6c81', '#9bd0d8'],
     ['Sobrio', '#33414c', '#b08d57']
@@ -244,9 +240,11 @@
     });
   }
   function aviso(t) {
+    if (window.avisoPanel) return window.avisoPanel(t);
     const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d);
-    setTimeout(() => d.remove(), 3200);
+    setTimeout(() => d.remove(), 3600);
   }
+  const ICO = (n) => '<svg class="ic peq" aria-hidden="true"><use href="#i-' + n + '"/></svg>';
   function cargando(si, detalle) { $('cargando').classList.toggle('oculto', !si); $('cargandoDetalle').textContent = detalle || ''; }
 
   // ─────────── recursos (fuentes e imágenes) ───────────
@@ -405,7 +403,7 @@
     $('btnLogoOriginal').disabled = !d.logoId;
     const vb = $('verbos'); vb.innerHTML = '';
     S.ini.roles.forEach((rol) => {
-      vb.insertAdjacentHTML('beforeend', '<label>' + rol + '</label>');
+      vb.insertAdjacentHTML('beforeend', '<label class="e">' + rol + '</label>');
       const i = document.createElement('input'); i.type = 'text'; i.value = d.verbos[rol] || '';
       i.oninput = () => { S.diseno.verbos = Object.assign({}, Motor.mezclar(S.diseno).verbos, { [rol]: i.value }); cambio(); };
       vb.appendChild(i);
@@ -414,7 +412,7 @@
     const lista = d.firmas && d.firmas.length ? d.firmas : S.ini.firmantes;
     S.ini.firmantes.forEach((_, n) => {
       const f = lista[n] || S.ini.firmantes[n];
-      fi.insertAdjacentHTML('beforeend', '<label>Firma ' + (n + 1) + ' · cargo y nombre</label>');
+      fi.insertAdjacentHTML('beforeend', '<label class="e">Firma ' + (n + 1) + ' · cargo y nombre</label>');
       const t = document.createElement('textarea'); t.value = f.titulo; t.style.minHeight = '38px';
       const nom = document.createElement('input'); nom.type = 'text'; nom.value = f.nombre; nom.style.marginTop = '4px';
       const leer = () => {
@@ -431,7 +429,7 @@
   function cambio() { marcarGuardado(); programarVista(); pintarMinis(); }
   function marcarGuardado() {
     const sin = JSON.stringify(S.diseno) !== S.guardado;
-    $('estadoGuardado').textContent = sin ? '● Cambios sin guardar' : (S.act && S.act.conDiseno ? '✓ Diseño guardado' : 'Usando el diseño base');
+    $('estadoGuardado').textContent = sin ? 'Cambios sin guardar' : (S.act && S.act.conDiseno ? 'Diseño guardado' : 'Usando el diseño base');
     $('estadoGuardado').classList.toggle('sin', sin);
   }
 
@@ -450,7 +448,7 @@
 
     const chips = $('chips');
     CHIPS.forEach((c) => {
-      const b = document.createElement('span'); b.className = 'chip'; b.textContent = c;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-campo'; b.textContent = c;
       b.onmousedown = (e) => e.preventDefault();
       b.onclick = () => {
         const el = S.ultimoCampo || $('cuerpo');
@@ -479,6 +477,8 @@
     $('btnLogoOriginal').onclick = () => { S.diseno.logoId = ''; refrescarControles(); cambio(); };
     $('btnFirmasAjustes').onclick = () => { S.diseno.firmas = []; refrescarControles(); cambio(); };
     $('btnPromptTexto').onclick = () => copiar(promptTexto(), 'promptTexto');
+    $('btnIaTexto').onclick = redactarConIa;
+    $('btnServidor').onclick = generarEnServidor;
     $('btnPromptFondo').onclick = () => copiar(promptFondo(), 'promptFondo');
     $('btnGuardar').onclick = guardar;
     $('btnBase').onclick = restablecer;
@@ -573,6 +573,34 @@
     }
   }
 
+  function pintarIa() {
+    const hay = S.ini && S.ini.ia;
+    $('btnIaTexto').classList.toggle('oculto', !hay);
+    const ctx = (S.act && S.act.contexto) || '';
+    $('iaContexto').innerHTML = hay ? (ctx ? 'Usará el contexto de la actividad: «' + esc(ctx.slice(0, 140)) + (ctx.length > 140 ? '…' : '') + '» y estas notas.'
+      : 'Escribe aquí qué se hizo (o el contexto en «Actividades › Editar») y pulsa «Redactar con IA».') : 'La IA de la app no está activada: copia la instrucción y pégala en otra IA.';
+  }
+  async function redactarConIa() {
+    const d = Motor.mezclar(S.diseno);
+    const frase = Motor.rellenar(d.cuerpo, datosDe({ nombre: '[nombre]', apellidos: '', dni: '' }, 'Participante'), d).replace(/\*\*/g, '');
+    if ($('descripcion').value.trim() && !confirm('Se sustituirá el «Texto sobre la actividad» actual. ¿Continuar?')) return;
+    try {
+      $('btnIaTexto').disabled = true; cargando(true, 'La IA está redactando el texto…');
+      const r = await llamar('api_iaTextoCertificado', S.act.id, $('notasIA').value, frase);
+      S.diseno.descripcion = r.texto; $('descripcion').value = r.texto; cambio();
+      aviso('Texto listo. Revísalo y guarda el diseño.');
+    } catch (e) { alert(e.message); }
+    finally { $('btnIaTexto').disabled = false; cargando(false); }
+  }
+  async function generarEnServidor() {
+    if (!S.cola.length) return;
+    if (/no cabe/.test($('avisos').textContent)) { alert('El texto no cabe en una página. Acórtalo antes de generar.'); return; }
+    if (JSON.stringify(S.diseno) !== S.guardado && !(await guardar())) return;
+    if (!confirm('El servidor generará los ' + S.cola.length + ' certificado(s) pendientes de «' + S.act.nombre + '» con el diseño guardado (los cambios de esta lista no se aplican). Puedes cerrar la ventana: te avisaremos por correo.\n\n¿Continuar?')) return;
+    try { const r = await llamar('api_generarEnServidor', S.act.id); aviso('Encargado: ' + r.n + ' certificado(s). Empezará en uno o dos minutos.'); }
+    catch (e) { alert(e.message); }
+  }
+
   // ─────────── guardar / cargar ───────────
   async function guardar() {
     try {
@@ -607,7 +635,7 @@
       S.guardado = JSON.stringify(S.diseno);
       S.cola = cola || [];
       await prepararImagenes();
-      refrescarControles(); pintarCola(); opcionesVista(); marcarGuardado();
+      refrescarControles(); pintarCola(); opcionesVista(); marcarGuardado(); pintarIa();
       await dibujarVista();
     } catch (e) { alert('Error al cargar: ' + e.message); }
     finally { cargando(false); }
@@ -647,10 +675,10 @@
       tr.innerHTML = '<input type="checkbox" class="sel" checked>' +
         '<input type="text" class="nombre" value="' + esc(p.nombre) + '" placeholder="Nombre">' +
         '<input type="text" class="apellidos" value="' + esc(p.apellidos) + '" placeholder="Apellidos">' +
-        '<button class="boton peq ver" title="Ver en la vista previa">👁</button>' +
+        '<button class="boton peq icono ver" title="Ver en la vista previa" aria-label="Ver en la vista previa">' + ICO('ojo') + '</button>' +
         '<input type="text" class="dni" value="' + esc(p.dni) + '" placeholder="DNI/NIE">' +
         '<select class="rol">' + S.ini.roles.map((r) => '<option' + (r === p.rol ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
-        (p.tieneEmail ? '' : '<div class="aviso-email">⚠️ Sin correo en la bóveda: no se le podrá enviar.</div>');
+        (p.tieneEmail ? '' : '<div class="aviso-email">Sin correo en la bóveda: añádelo en «Inscripciones › Corregir» para poder enviárselo.</div>');
       tr.querySelectorAll('input[type=text], select').forEach((el) => el.addEventListener('input', () => {
         tr.classList.toggle('mal', !dniValido(tr.querySelector('.dni').value));
         if ($('verCon').value === p.reg) programarVista();
@@ -700,9 +728,9 @@
         } catch (e) { fallos++; log('✗ ' + p.nombre + ' ' + p.apellidos + ': ' + e.message); }
         $('barra').style.width = Math.round((i + 1) * 100 / elegidos.length) + '%';
       }
-      await llamar('api_finTanda', hechos);
+      const fin = await llamar('api_finTanda', hechos, S.act.id);
       $('textoProgreso').textContent = 'Terminado: ' + hechos + ' generado(s)' + (fallos ? ', ' + fallos + ' con error' : '') +
-        '. Están en la carpeta «Para firmar» del primer firmante, que ya ha recibido el aviso.';
+        (fin && fin.aFirma ? '. Se han enviado a firmar automáticamente.' : '. Están en «Envíos»: revísalos y pulsa «Enviar a firmar».');
     } catch (e) { log('✗ ' + e.message); }
     finally {
       S.generando = false; $('btnGenerar').disabled = false;
@@ -726,7 +754,7 @@
   function actualizarSelector() {
     const s = $('actividad'), v = s.value; s.innerHTML = '';
     S.ini.actividades.forEach((a) => s.insertAdjacentHTML('beforeend', '<option value="' + a.id + '">' +
-      esc(a.nombre) + (a.pendientes ? '  · ' + a.pendientes + ' pendiente(s)' : '') + (a.conDiseno ? '  · 🎨' : '') + '</option>'));
+      esc(a.nombre) + (a.pendientes ? '  · ' + a.pendientes + ' por generar' : '') + (a.conDiseno ? '  · diseño propio' : '') + '</option>'));
     if (v) s.value = v;
   }
 
