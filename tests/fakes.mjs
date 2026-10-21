@@ -2,7 +2,7 @@
 import crypto from 'crypto';
 
 export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
-  const estado = { web: {}, peticiones: [], correos: [], alertas: [], respuestasBorradas: [], usuario: propietario, props: {}, libros: {}, archivos: {}, carpetas: {}, items: {} };
+  const estado = { cache: {}, web: {}, peticiones: [], correos: [], alertas: [], respuestasBorradas: [], usuario: propietario, props: {}, libros: {}, archivos: {}, carpetas: {}, items: {} };
   let nId = 0; const nuevoId = (p) => p + (++nId);
 
   const encadenable = (base) => new Proxy(base, {
@@ -17,6 +17,7 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
       appendRow: (fila) => { datos[sh.getLastRow()] = fila.slice(); },
       deleteRow: (r) => { datos.splice(r - 1, 1); },
       getRange: (r, c, nr = 1, nc = 1) => {
+        if (typeof r === 'string' && /^[A-Z]:[A-Z]$/.test(r)) { const col = (x) => x.charCodeAt(0) - 64; return rango(1, col(r[0]), 1000, col(r[2]) - col(r[0]) + 1); }
         if (typeof r === 'string') { const m = r.match(/^([A-Z])(\d+)(?::([A-Z])(\d+))?$/); if (!m[3]) { m[3] = m[1]; m[4] = m[2]; } const col = (x) => x.charCodeAt(0) - 64; return rango(+m[2], col(m[1]), +m[4] - +m[2] + 1, col(m[3]) - col(m[1]) + 1); }
         return rango(r, c, nr, nc);
       },
@@ -84,7 +85,7 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
       getBlob: () => blobFalso(f.bytes, f.nombre, f.tipo),
       getParents: () => iter(estado.carpetas[f.carpeta] ? [estado.carpetas[f.carpeta]] : []),
       setTrashed: (v) => { if (f.duenio !== 'propietario') throw new Error('Solo el propietario'); f.papelera = v; },
-      getEditors: () => [], getViewers: () => [], setSharing: () => {} };
+      getEditors: () => [], getViewers: () => [], setSharing: () => {}, moveTo: (c) => { f.carpeta = c.getId(); return f; } };
     estado.archivos[id] = f; return f;
   }
 
@@ -116,6 +117,7 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
     DriveApp: {
       getRootFolder: () => raizDrive, getFolderById: (id) => estado.carpetas[id],
       getFileById: (id) => { if (estado.archivos[id]) return estado.archivos[id]; if (estado.libros[id]) return archivoFalso('libro', '', null, 'propietario'); throw new Error('No existe ' + id); },
+      _raiz: () => raizDrive,
       Access: {}, Permission: {}
     },
     MailApp: { sendEmail: (para, asunto, texto, op) => estado.correos.push({ para, asunto, texto, html: op.htmlBody, adjuntos: op.attachments || [] }) },
@@ -125,9 +127,10 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
       getUuid: () => crypto.randomUUID(),
       base64Encode: (b) => aBuffer(b).toString('base64'),
       base64Decode: (s) => [...Buffer.from(s, 'base64')].map(x => x > 127 ? x - 256 : x),
-      formatDate: (d) => d.toISOString().slice(0, 10), DigestAlgorithm: { SHA_256: 1 }, Charset: { UTF_8: 'utf8' }
+      formatDate: (d) => new Date(d).toISOString().slice(0, 16).replace('T', ' '),
+      zip: (blobs, nombre) => blobFalso(Buffer.concat(blobs.map(b => b._bytes)), nombre, 'application/zip'), DigestAlgorithm: { SHA_256: 1 }, Charset: { UTF_8: 'utf8' }
     },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => estado.props[k] ?? null, setProperty: (k, v) => { estado.props[k] = v; } }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => estado.props[k] ?? null, setProperty: (k, v) => { estado.props[k] = v; }, setProperties: (o) => { Object.assign(estado.props, o); } }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
     ScriptApp: { getProjectTriggers: () => [], deleteTrigger: () => {}, newTrigger: () => encadenable({}), getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/XYZ/exec' }),
       getScriptId: () => 'SCRIPT123', getOAuthToken: () => 'token' },
@@ -137,7 +140,14 @@ export function crearGoogle({ propietario = 'coordinacion@centro.test' } = {}) {
       return { getResponseCode: () => r.code, getContentText: () => r.text };
     } },
     Session: { getEffectiveUser: () => ({ getEmail: () => propietario }), getActiveUser: () => ({ getEmail: () => estado.usuario }), getScriptTimeZone: () => 'Europe/Madrid' },
-    HtmlService: { createHtmlOutput: (h) => encadenable({ html: h }) },
+    HtmlService: {
+      createHtmlOutput: (h) => encadenable({ html: h }),
+      createTemplate: (h) => { const t = { _html: h }; t.evaluate = () => encadenable({ html: h, vars: t }); return t; }
+    },
+    CacheService: { getScriptCache: () => ({
+      get: (k) => (estado.cache[k] && estado.cache[k].exp > Date.now() ? estado.cache[k].v : null),
+      put: (k, v, s) => { estado.cache[k] = { v: String(v), exp: Date.now() + (s || 600) * 1000 }; },
+      remove: (k) => { delete estado.cache[k]; } }) },
     Logger: { log: () => {} }, MimeType: { PDF: 'application/pdf' }
   };
   return { ctx, estado, gestion, archivoFalso };

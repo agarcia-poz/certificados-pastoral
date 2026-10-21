@@ -1,5 +1,5 @@
 {
-  "version": "2.2.2",
-  "fecha": "2026-10-20",
-  "novedades": "- Si la instalación falla, el mensaje dice la versión, el paso y la línea.\n- Abrir o cerrar el formulario ya no detiene la instalación."
+  "version": "3.0.0",
+  "fecha": "2026-10-21",
+  "novedades": "- Aplicación web propia: panel del equipo, inscripción pública y verificación, sin hojas de cálculo a la vista.\n- Acceso del equipo con código por correo y tres papeles: Administración, Coordinación y Firmante.\n- Inscripción del alumnado en una página propia, con confirmación por correo (sustituye al formulario de Google).\n- Firmas dentro de la app: descargar en ZIP, firmar con Autofirma y arrastrar los PDF firmados.\n- Instalación: pegar un archivo e implementarlo como aplicación web; un asistente hace el resto."
 }

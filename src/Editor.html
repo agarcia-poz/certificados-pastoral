@@ -1,28 +1,19 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<base target="_top">
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<?!= incluir_('Motor') ?>
-<?!= incluir_('Logos') ?>
+<!-- Editor de diseño y generación: vista incrustada en el panel (Panel.html). -->
 <style>
   :root {
-    --azul: #2a6096; --azul-osc: #1d4a77; --azul-claro: #eaf2f9; --texto: #1f2a33; --suave: #5d6b75;
+    --azul: #2e7d4f; --azul-osc: #1f5c39; --azul-claro: #e8f3ec; --texto: #1f2a33; --suave: #5d6b75;
     --borde: #d9e2e9; --fondo: #f3f6f9; --ok: #0b7a45; --mal: #b3261e; --aviso: #8a5a00;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; font-family: "Open Sans", Arial, Helvetica, sans-serif; color: var(--texto); background: var(--fondo); font-size: 13px; }
-  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--borde); }
+  #vistaEditor { position: relative; height: 100vh; font-size: 13px; }
+  #vistaEditor .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  #vistaEditor header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--borde); }
   header select { min-width: 360px; }
   .pestanas { display: flex; gap: 4px; margin-left: auto; }
   .pestanas button { border: 1px solid var(--borde); background: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--suave); }
   .pestanas button.activa { background: var(--azul); border-color: var(--azul); color: #fff; }
   .contador { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #f2a33a; color: #fff; font-size: 11px; margin-left: 6px; }
-  main { display: grid; grid-template-columns: 440px 1fr; min-height: 0; }
+  #vistaEditor main { display: grid; grid-template-columns: 440px 1fr; min-height: 0; }
   .panel { overflow-y: auto; background: #fff; border-right: 1px solid var(--borde); display: flex; flex-direction: column; }
   .panel-scroll { flex: 1; overflow-y: auto; padding: 6px 16px 16px; }
   .panel-pie { border-top: 1px solid var(--borde); padding: 10px 16px; background: #fafcfd; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -79,13 +70,12 @@
   .barra-progreso div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
   .registro { font-size: 12px; max-height: 160px; overflow: auto; background: var(--fondo); border-radius: 6px; padding: 8px; white-space: pre-wrap; }
   .vacio { padding: 30px 10px; text-align: center; color: var(--suave); }
-  .cargando { position: fixed; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 10; font-weight: 600; color: var(--azul-osc); }
+  .cargando { position: absolute; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 10; font-weight: 600; color: var(--azul-osc); }
   .oculto { display: none !important; }
   .nota { background: var(--azul-claro); border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.45; margin: 10px 0; }
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f2a33; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 12.5px; z-index: 20; }
 </style>
-</head>
-<body>
+<section id="vistaEditor" class="vista oculto">
 <div class="app">
   <header>
     <strong style="color:var(--azul-osc)">Actividad</strong>
@@ -193,8 +183,8 @@
     <!-- ───────────── PANEL GENERAR ───────────── -->
     <section class="panel oculto" id="panelGenerar">
       <div class="panel-scroll">
-        <div class="nota">Aquí están las personas con <b>✔ Certificar</b> marcado en esta actividad. Puedes corregir nombre, apellidos, DNI y rol antes de generar: las correcciones se guardan en la bóveda.</div>
-        <div id="sinPendientes" class="vacio oculto">No hay certificados pendientes en esta actividad.<br>Marca «✔ Certificar» en la hoja «Participaciones».</div>
+        <div class="nota">Aquí están las personas <b>validadas</b> en «Inscripciones» para esta actividad. Puedes corregir nombre, apellidos, DNI y rol antes de generar: las correcciones se guardan en la bóveda.</div>
+        <div id="sinPendientes" class="vacio oculto">No hay certificados pendientes en esta actividad.<br>Valida a las personas en «Inscripciones».</div>
         <div id="tablaCola">
           <label class="interruptor"><input type="checkbox" id="todos" checked> Seleccionar todas</label>
           <div id="listaCola"></div>
@@ -226,6 +216,7 @@
 </div>
 <div class="cargando" id="cargando"><div>Cargando el editor…</div><div class="ayuda" id="cargandoDetalle"></div></div>
 <textarea id="portapapeles" style="position:fixed;left:-9999px;top:0"></textarea>
+</section>
 
 <script>
 (function () {
@@ -249,7 +240,7 @@
   function llamar(fn) {
     const args = Array.prototype.slice.call(arguments, 1);
     return new Promise(function (ok, ko) {
-      google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) { ko(e && e.message ? e : new Error(String(e))); })[fn].apply(null, args);
+      google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) { const err = e && e.message ? e : new Error(String(e)); if (/^SESION/.test(err.message) && window.sesionCaducada) window.sesionCaducada(); ko(err); })[fn].apply(null, [window.TOKEN].concat(args));
     });
   }
   function aviso(t) {
@@ -725,9 +716,9 @@
       $('btnPrueba').disabled = true;
       const per = personaVista();
       const bytes = await pdfDe(per, $('verRol').value, null);
-      const url = await llamar('api_guardarPrueba', bytesABase64(bytes), 'Prueba ' + S.act.nombre);
-      window.open(url, '_blank');
-      aviso('PDF de prueba guardado en «Pruebas de diseño».');
+      const nombre = 'Prueba ' + S.act.nombre.replace(/[^\wáéíóúñü ]+/gi, ' ').trim().slice(0, 60) + '.pdf';
+      if (window.descargarArchivo) window.descargarArchivo(new Blob([bytes], { type: 'application/pdf' }), nombre, bytesABase64(bytes));
+      aviso('PDF de prueba descargado.');
     } catch (e) { alert('No se pudo crear el PDF de prueba: ' + e.message); }
     finally { $('btnPrueba').disabled = false; }
   }
@@ -740,23 +731,32 @@
   }
 
   // ─────────── arranque ───────────
-  async function arrancar() {
+  async function arrancar(preferida) {
     try {
       if (typeof PDFLib === 'undefined') throw new Error('No se han podido cargar las librerías (¿sin conexión?).');
       cargando(true, 'Preparando logos y tipografías…');
       await Promise.all([registrarImagen('pastoral', LOGOS.pastoral), registrarImagen('safa', LOGOS.safa), registrarImagen('uja', LOGOS.uja)]);
-      S.ini = await llamar('api_inicio');
-      if (!S.ini.actividades.length) { cargando(true, 'No hay actividades. Escríbelas en la hoja «Actividades» y vuelve a abrir el editor.'); return; }
+      S.ini = await llamar('api_inicioEditor');
+      if (!S.ini.actividades.length) { cargando(true, 'Todavía no hay actividades. Créalas en «Actividades» y vuelve aquí.'); S.ini = null; return; }
       miniPlantillas(); enlazarControles(); actualizarSelector();
-      const primera = S.ini.actividades.find((a) => a.pendientes) || S.ini.actividades[0];
+      const primera = S.ini.actividades.find((a) => a.id === preferida) || S.ini.actividades.find((a) => a.pendientes) || S.ini.actividades[0];
       $('actividad').value = primera.id;
       await fuente('opensans');
       await cargarActividad(primera.id);
       if (primera.pendientes) pestana('diseno');
     } catch (e) { cargando(true, 'Error: ' + e.message); }
   }
-  arrancar();
+  /** El panel abre el editor en una actividad y pestaña concretas. */
+  window.abrirEditor = async function (actId, tab) {
+    if (!S.ini) { await arrancar(actId); }
+    else {
+      S.ini = await llamar('api_inicioEditor'); actualizarSelector();
+      if (actId && (!S.act || actId !== S.act.id)) { $('actividad').value = actId; await cargarActividad(actId); }
+      else if (S.act) { S.cola = await llamar('api_cola', S.act.id); pintarCola(); opcionesVista(); }
+    }
+    if (tab && S.ini) pestana(tab);
+    programarVista();
+  };
 })();
 </script>
-</body>
-</html>
+

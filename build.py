@@ -3,9 +3,9 @@
 
     python3 build.py
 
-dist/CertificadosPastoral.gs  la app entera en UN archivo (código, páginas del editor y logos):
-                              es lo que se copia y pega en Apps Script para instalar o actualizar.
-dist/version.json             versión, fecha y novedades (lo consulta «Actualizar la app»).
+dist/CertificadosPastoral.gs  la aplicación web entera en UN archivo (servidor, páginas, motor de PDF
+                              y logos): es lo que se pega en Apps Script para instalar o actualizar.
+dist/version.json             versión, fecha y novedades.
 """
 import base64, json, pathlib, re, shutil
 
@@ -21,25 +21,27 @@ def main():
     if DIST.exists():
         shutil.rmtree(DIST)
     DIST.mkdir()
-    codigo = (SRC / 'Codigo.gs').read_text(encoding='utf-8')
+    servidor = (SRC / 'Servidor.gs').read_text(encoding='utf-8')
     motor = (SRC / 'motor.js').read_text(encoding='utf-8')
     assert '</script' not in motor
     logos = {'pastoral': 'data:image/png;base64,' + b64('logo-pastoral.png'),
              'safa': 'data:image/png;base64,' + b64('logo-cusafa.png'),
              'uja': 'data:image/png;base64,' + b64('logo-uja.png')}
     paginas = {
+        'Panel': (SRC / 'Panel.html').read_text(encoding='utf-8'),
         'Editor': (SRC / 'Editor.html').read_text(encoding='utf-8'),
+        'Publico': (SRC / 'Publico.html').read_text(encoding='utf-8'),
         'Motor': '<script>\n' + motor + '\n</script>\n',
         'Logos': '<script>\nconst LOGOS = ' + json.dumps(logos) + ';\n</script>\n',
     }
-    unico = (codigo.rstrip() + '\n\n'
+    unico = (servidor.rstrip() + '\n\n'
              '// ─────────────────────────────── RECURSOS INCRUSTADOS ───────────────────────\n'
-             '// Generado por build.py: páginas del editor, motor de PDF y logos. No editar a mano.\n'
-             "const LOGO_CORREO_B64 = '" + b64('logo-cusafa-blanco.png') + "';\n"
+             '// Generado por build.py: páginas, motor de PDF y logos. No editar a mano.\n'
+             "const LOGO_CORREO_B64 = '" + b64('logo-pastoral.png') + "';\n"
              'const ARCHIVOS_HTML = ' + json.dumps(paginas, ensure_ascii=False) + ';\n')
     (DIST / 'CertificadosPastoral.gs').write_text(unico, encoding='utf-8')
 
-    version = re.search(r"const VERSION_APP = '([^']+)'", codigo).group(1)
+    version = re.search(r"const VERSION_APP = '([^']+)'", servidor).group(1)
     novedades = (RAIZ / 'NOVEDADES.md').read_text(encoding='utf-8')
     m = re.search(r'^## ' + re.escape(version) + r' \((\d{4}-\d{2}-\d{2})\)\n(.*?)(?=^## |\Z)', novedades, re.S | re.M)
     if not m:

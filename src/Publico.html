@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<base target="_top">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<?!= incluir_('Logos') ?>
+<style>
+  :root { --verde: #2e7d4f; --verde-osc: #1f5c39; --verde-claro: #e8f3ec; --oro: #f2c14e; --texto: #1f2a33; --suave: #5d6b75; --borde: #dfe6e2; --mal: #b3261e; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; font-family: "Open Sans", Arial, Helvetica, sans-serif; color: var(--texto); background: #f4f6f5; font-size: 15px; }
+  .franja { height: 14px; background: var(--verde); border-bottom: 4px solid var(--oro); }
+  .franja.abajo { height: 10px; border-bottom: 0; border-top: 4px solid var(--oro); margin-top: 40px; }
+  .contenedor { max-width: 680px; margin: 0 auto; padding: 0 16px; }
+  .cabecera { text-align: center; padding: 26px 0 8px; }
+  .cabecera img { width: 220px; max-width: 70%; }
+  .cabecera h1 { font-size: 22px; margin: 10px 0 4px; }
+  .cabecera p { color: var(--suave); margin: 0; }
+  .tarjeta { background: #fff; border-radius: 14px; padding: 22px 22px; margin-top: 18px; box-shadow: 0 4px 18px rgba(20,50,30,.06); }
+  .tarjeta h2 { font-size: 16px; margin: 0 0 4px; }
+  .tarjeta .sub { color: var(--suave); font-size: 13.5px; margin: 0 0 14px; line-height: 1.45; }
+  label { display: block; font-weight: 600; font-size: 13px; color: var(--suave); margin: 12px 0 5px; }
+  input[type=text], input[type=email], textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--borde); border-radius: 8px; font: inherit; color: var(--texto); }
+  input:focus, textarea:focus { outline: 2px solid #a9d3b8; border-color: var(--verde); }
+  .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .act { border: 2px solid var(--borde); border-radius: 12px; padding: 14px; margin-bottom: 10px; transition: .15s; }
+  .act.marcada { border-color: var(--verde); background: #fbfdfb; }
+  .act .top { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+  .act input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--verde); }
+  .act b { display: block; }
+  .act small { color: var(--suave); }
+  .act .det { margin: 12px 0 0 32px; }
+  .seg { display: inline-flex; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { border: 0; background: #fff; padding: 8px 12px; font: inherit; font-size: 13.5px; cursor: pointer; color: var(--suave); }
+  .seg button.activo { background: var(--verde); color: #fff; font-weight: 600; }
+  .estrellas button { border: 0; background: none; font-size: 26px; cursor: pointer; color: #cfd6d2; padding: 0 2px; }
+  .estrellas button.on { color: #e0a31b; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; font-size: 14px; line-height: 1.45; cursor: pointer; }
+  .check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--verde); flex: none; }
+  details { font-size: 13px; color: var(--suave); line-height: 1.5; margin: 6px 0 4px; }
+  summary { cursor: pointer; color: var(--verde-osc); font-weight: 600; }
+  .boton { display: block; width: 100%; border: 0; background: var(--verde); color: #fff; font: inherit; font-weight: 700; padding: 14px; border-radius: 10px; cursor: pointer; margin-top: 18px; font-size: 16px; }
+  .boton:hover { background: var(--verde-osc); }
+  .boton:disabled { opacity: .6; cursor: default; }
+  .error { background: #fbe9e7; color: var(--mal); padding: 10px 12px; border-radius: 8px; margin-top: 12px; font-size: 14px; }
+  .ok { text-align: center; padding: 10px 0; }
+  .ok .icono { font-size: 46px; }
+  .ok h2 { font-size: 20px; margin: 8px 0; }
+  .ok p { color: var(--suave); line-height: 1.5; }
+  .verif form { display: flex; gap: 8px; }
+  .verif input { text-transform: uppercase; }
+  .verif button { border: 0; background: var(--verde); color: #fff; font-weight: 700; padding: 0 18px; border-radius: 8px; font: inherit; cursor: pointer; }
+  .estado { padding: 14px 16px; border-radius: 10px; margin: 16px 0 10px; font-weight: 700; }
+  .estado.bien { background: var(--verde-claro); color: var(--verde-osc); }
+  .estado.mal { background: #fbe9e7; color: var(--mal); }
+  .estado.medio { background: #fff4dc; color: #7a5200; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: var(--suave); font-weight: 400; padding: 8px 10px 8px 0; vertical-align: top; width: 120px; font-size: 14px; }
+  td { padding: 8px 0; border-bottom: 1px solid #eef2ef; }
+  .pie { text-align: center; font-size: 12px; color: var(--suave); padding: 18px 16px 0; }
+  .trampa { position: absolute; left: -5000px; }
+  @media (max-width: 520px) { .fila2 { grid-template-columns: 1fr; } .act .det { margin-left: 0; } }
+</style>
+</head>
+<body>
+<div class="franja"></div>
+<div class="contenedor">
+  <div class="cabecera"><img id="logo" alt="Pastoral · Centro Universitario Sagrada Familia"><h1 id="titulo"></h1><p>Servicio de Pastoral y Compromiso Solidario</p></div>
+  <div id="contenido"></div>
+  <div class="pie">Centro Universitario «Sagrada Familia» · Úbeda · Centro adscrito a la Universidad de Jaén</div>
+</div>
+<div class="franja abajo"></div>
+
+<script>
+(function () {
+  'use strict';
+  const TIPO = <?!= tipoJs ?>;
+  const DATOS = <?!= datosJs ?>;
+  const URL_APP = <?!= urlJs ?>;
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  $('logo').src = LOGOS.pastoral;
+  const C = $('contenido');
+
+  // ─────────── Registro de participación ───────────
+  if (TIPO === 'inscripcion') {
+    $('titulo').textContent = 'Registro de participación';
+    C.innerHTML = '<div class="tarjeta"><p class="sub" style="margin:0">Cargando las actividades…</p></div>';
+    google.script.run.withSuccessHandler(pintar).withFailureHandler((e) => { C.innerHTML = '<div class="tarjeta"><div class="error">' + esc(e.message) + '</div></div>'; }).api_publicoActividades();
+  }
+
+  function pintar(info) {
+    if (!info.actividades.length) {
+      C.innerHTML = '<div class="tarjeta ok"><div class="icono">🕊️</div><h2>Ahora mismo no hay actividades abiertas</h2><p>Vuelve cuando el equipo de Pastoral te lo indique.</p></div>';
+      return;
+    }
+    const sel = {};
+    C.innerHTML =
+      '<div class="tarjeta"><h2>1. ¿En qué actividades has estado?</h2><p class="sub">Marca cada una e indica cómo participaste. Si quieres, valórala: es anónimo.</p><div id="acts"></div></div>' +
+      '<div class="tarjeta"><h2>2. Tus datos para el certificado</h2><p class="sub">Escríbelos tal como quieres que aparezcan. El certificado te llegará a este correo.</p>' +
+      '<div class="fila2"><div><label for="nombre">Nombre</label><input type="text" id="nombre" autocomplete="given-name"></div><div><label for="apellidos">Apellidos</label><input type="text" id="apellidos" autocomplete="family-name"></div></div>' +
+      '<div class="fila2"><div><label for="dni">DNI / NIE</label><input type="text" id="dni" placeholder="12345678Z" autocomplete="off"></div><div><label for="email">Correo</label><input type="email" id="email" autocomplete="email"></div></div>' +
+      '<input type="text" id="web" class="trampa" tabindex="-1" autocomplete="off" aria-hidden="true"></div>' +
+      '<div class="tarjeta"><h2>3. ¿Qué te ha aportado? <span style="font-weight:400;color:var(--suave)">(opcional y anónimo)</span></h2>' +
+      '<textarea id="comentario" rows="3" placeholder="Una frase, una experiencia, algo que te llevas…"></textarea>' +
+      '<label class="check"><input type="checkbox" id="citable"> Podéis citar mi comentario en el boletín de Pastoral, siempre sin mi nombre.</label></div>' +
+      '<div class="tarjeta"><h2>4. Protección de datos</h2>' +
+      '<details><summary>Leer la información sobre protección de datos</summary><p>' + esc(info.privacidad) + '</p></details>' +
+      '<label class="check"><input type="checkbox" id="c1"> He leído la información sobre protección de datos y acepto el tratamiento de mis datos para gestionar y expedir mi certificado.</label>' +
+      '<label class="check"><input type="checkbox" id="c2"> Consiento expresamente que se trate la información sobre mi participación en actividades del Servicio de Pastoral, que podría revelar convicciones religiosas (art. 9.2.a RGPD).</label>' +
+      '<div id="error" class="error" style="display:none"></div><button class="boton" id="enviar">Enviar registro</button>' +
+      '<p class="sub" style="text-align:center;margin:12px 0 0">Te enviaremos un correo para que confirmes el registro.</p></div>';
+    const acts = $('acts');
+    info.actividades.forEach((a) => {
+      const d = document.createElement('div'); d.className = 'act';
+      d.innerHTML = '<div class="top"><input type="checkbox"><div><b>' + esc(a.nombre) + '</b><small>' + esc([a.tipo, a.fechas].filter(Boolean).join(' · ')) + '</small></div></div>' +
+        '<div class="det" style="display:none"><div class="seg">' + info.roles.map((r, i) => '<button type="button" data-r="' + esc(r) + '" class="' + (i === 0 ? 'activo' : '') + '">' + esc(r) + '</button>').join('') + '</div>' +
+        '<div style="margin-top:10px;font-size:13px;color:var(--suave)">Tu valoración: <span class="estrellas">' + [1, 2, 3, 4, 5].map((n) => '<button type="button" data-v="' + n + '" aria-label="' + n + ' de 5">★</button>').join('') + '</span></div></div>';
+      const caja = d.querySelector('input'), det = d.querySelector('.det');
+      const cambiar = () => { d.classList.toggle('marcada', caja.checked); det.style.display = caja.checked ? '' : 'none'; if (caja.checked) sel[a.id] = sel[a.id] || { id: a.id, rol: info.roles[0], valor: null }; else delete sel[a.id]; };
+      d.querySelector('.top').onclick = (e) => { if (e.target !== caja) caja.checked = !caja.checked; cambiar(); };
+      d.querySelectorAll('.seg button').forEach((b) => { b.onclick = () => { d.querySelectorAll('.seg button').forEach((x) => x.classList.remove('activo')); b.classList.add('activo'); sel[a.id].rol = b.dataset.r; }; });
+      d.querySelectorAll('.estrellas button').forEach((b) => { b.onclick = () => { const v = Number(b.dataset.v); sel[a.id].valor = v; d.querySelectorAll('.estrellas button').forEach((x) => x.classList.toggle('on', Number(x.dataset.v) <= v)); }; });
+      acts.appendChild(d);
+    });
+    $('enviar').onclick = () => {
+      const err = (t) => { $('error').textContent = t; $('error').style.display = t ? '' : 'none'; };
+      err('');
+      const datos = { nombre: $('nombre').value, apellidos: $('apellidos').value, dni: $('dni').value, email: $('email').value,
+        actividades: Object.values(sel), comentario: $('comentario').value, citable: $('citable').checked,
+        consentimiento: $('c1').checked, consentimiento9: $('c2').checked, web: $('web').value };
+      if (!datos.actividades.length) return err('Marca al menos una actividad.');
+      if (!datos.nombre.trim() || !datos.apellidos.trim()) return err('Escribe tu nombre y apellidos.');
+      if (!dniValido(datos.dni)) return err('El DNI/NIE no es válido: revisa el número y la letra.');
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.email.trim())) return err('Escribe un correo válido.');
+      if (!datos.consentimiento || !datos.consentimiento9) return err('Necesitamos tus dos consentimientos para expedir el certificado.');
+      $('enviar').disabled = true; $('enviar').textContent = 'Enviando…';
+      google.script.run.withSuccessHandler((r) => {
+        C.innerHTML = '<div class="tarjeta ok"><div class="icono">📬</div><h2>Revisa tu correo</h2><p>Te hemos enviado un mensaje a <b>' + esc(r.email) +
+          '</b>. Pulsa el botón «Confirmar mi registro» para que sea válido.<br>Si no lo ves, mira en el correo no deseado.</p></div>';
+        window.scrollTo(0, 0);
+      }).withFailureHandler((e) => { err(e.message); $('enviar').disabled = false; $('enviar').textContent = 'Enviar registro'; }).api_publicoInscribir(datos);
+    };
+  }
+  function dniValido(d) {
+    const m = String(d).toUpperCase().replace(/[\s.\-]/g, '').match(/^([0-9XYZ])(\d{7})([A-Z])$/);
+    if (!m) return false;
+    return 'TRWAGMYFPDXBNJZSQVHLCKE'.charAt(Number(({ X: '0', Y: '1', Z: '2' }[m[1]] || m[1]) + m[2]) % 23) === m[3];
+  }
+
+  // ─────────── Confirmación ───────────
+  if (TIPO === 'confirmar') {
+    $('titulo').textContent = 'Registro de participación';
+    C.innerHTML = DATOS.ok
+      ? '<div class="tarjeta ok"><div class="icono">✅</div><h2>¡Gracias, ' + esc(DATOS.nombre) + '!</h2><p>Tu registro está confirmado:</p><p><b>' +
+        DATOS.actividades.map(esc).join('</b><br><b>') + '</b></p><p>Cuando el equipo de Pastoral lo revise y el certificado esté firmado, te llegará por correo.</p></div>'
+      : '<div class="tarjeta ok"><div class="icono">⚠️</div><h2>No se ha podido confirmar</h2><p>' + esc(DATOS.mensaje) + '</p><p><a href="' + esc(URL_APP) + '?p=inscripcion">Volver al registro</a></p></div>';
+  }
+
+  // ─────────── Verificación ───────────
+  if (TIPO === 'verificar') {
+    $('titulo').textContent = 'Verificación de certificados';
+    const r = DATOS.r;
+    let res = '';
+    if (r && r.estado === 'ok') {
+      res = '<div class="estado bien">✅ Certificado auténtico</div><table>' +
+        '<tr><th>Código</th><td>' + esc(r.codigo) + '</td></tr><tr><th>Titular</th><td>' + esc(r.iniciales) + ' <small style="color:var(--suave)">(solo iniciales, por privacidad)</small></td></tr>' +
+        '<tr><th>Actividad</th><td>' + esc(r.actividad) + '</td></tr><tr><th>Fechas</th><td>' + esc(r.fechas) + '</td></tr><tr><th>Condición</th><td>' + esc(r.rol) + '</td></tr>' +
+        (r.horas ? '<tr><th>Duración</th><td>' + String(r.horas).replace('.', ',') + ' horas</td></tr>' : '') + (r.ects ? '<tr><th>ECTS</th><td>' + String(r.ects).replace('.', ',') + '</td></tr>' : '') +
+        '<tr><th>Expedido</th><td>' + esc(r.expedido) + '</td></tr><tr><th>Firmado por</th><td>' + r.firmantes.map(esc).join('<br>') + '</td></tr></table>';
+    } else if (r && r.estado === 'anulado') res = '<div class="estado mal">Este certificado fue anulado y no tiene validez.</div>';
+    else if (r && r.estado === 'tramite') res = '<div class="estado medio">Este certificado está en proceso de firma y todavía no se ha expedido.</div>';
+    else if (r && r.estado === 'no') res = '<div class="estado mal">No existe ningún certificado con el código ' + esc(DATOS.codigo) + '. Revisa que esté bien escrito.</div>';
+    C.innerHTML = '<div class="tarjeta verif"><p class="sub">Escribe el código que aparece al pie del certificado o escanea su QR.</p>' +
+      '<form method="get" action="' + esc(URL_APP) + '" target="_top"><input type="hidden" name="p" value="verificar"><input type="text" name="c" placeholder="SAFA-PAS-2627-XXXXXX" value="' + esc(DATOS.codigo || '') + '"><button>Comprobar</button></form>' + res + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

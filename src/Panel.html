@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<base target="_top">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<?!= incluir_('Motor') ?>
+<?!= incluir_('Logos') ?>
+<style>
+  :root {
+    --verde: #2e7d4f; --verde-osc: #1f5c39; --verde-claro: #e8f3ec; --oro: #f2c14e;
+    --texto: #1f2a33; --suave: #5d6b75; --borde: #dfe6e2; --fondo: #f4f6f5; --blanco: #fff;
+    --mal: #b3261e; --mal-claro: #fbe9e7; --aviso: #8a5a00; --aviso-claro: #fff4dc; --azul: #2a6096; --azul-claro: #eaf2f9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Open Sans", Arial, Helvetica, sans-serif; color: var(--texto); background: var(--fondo); font-size: 14px; }
+  button { font: inherit; }
+  a { color: var(--verde-osc); }
+  .oculto { display: none !important; }
+  .boton { border: 1px solid var(--borde); background: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--texto); }
+  .boton:hover { background: var(--fondo); }
+  .boton.primario { background: var(--verde); border-color: var(--verde); color: #fff; }
+  .boton.primario:hover { background: var(--verde-osc); }
+  .boton.peligro { color: var(--mal); }
+  .boton.peq { padding: 4px 9px; font-size: 12px; }
+  .boton:disabled { opacity: .5; cursor: default; }
+  input[type=text], input[type=email], input[type=number], select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 7px; font: inherit; color: var(--texto); background: #fff; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #a9d3b8; border-color: var(--verde); }
+  label { display: block; font-weight: 600; font-size: 12.5px; color: var(--suave); margin: 12px 0 5px; }
+  .ayuda { font-size: 12px; color: var(--suave); line-height: 1.45; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1f2a33; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+
+  /* Acceso */
+  .pn-acceso { min-height: 100vh; display: flex; flex-direction: column; }
+  .pn-franja { height: 14px; background: var(--verde); border-bottom: 4px solid var(--oro); }
+  .pn-franja.abajo { border-bottom: 0; border-top: 4px solid var(--oro); height: 10px; margin-top: auto; }
+  .pn-tarjeta { width: 100%; max-width: 420px; margin: 7vh auto 30px; background: #fff; border-radius: 16px; padding: 30px 28px; box-shadow: 0 10px 34px rgba(20,50,30,.10); }
+  .pn-tarjeta img { display: block; width: 210px; margin: 0 auto 10px; }
+  .pn-tarjeta h1 { font-size: 20px; text-align: center; margin: 6px 0 4px; }
+  .pn-tarjeta .sub { text-align: center; color: var(--suave); margin: 0 0 18px; font-size: 13px; }
+  .pn-tarjeta .boton { width: 100%; margin-top: 16px; padding: 11px; }
+  .pn-codigo { font-size: 26px !important; letter-spacing: 10px; text-align: center; font-weight: 700; }
+  .pn-error { background: var(--mal-claro); color: var(--mal); padding: 9px 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; }
+
+  /* Estructura */
+  .pn-app { display: grid; grid-template-columns: 236px 1fr; height: 100vh; }
+  .pn-lateral { background: #fff; border-right: 1px solid var(--borde); display: flex; flex-direction: column; min-height: 0; }
+  .pn-lateral .franja { height: 8px; background: var(--verde); border-bottom: 3px solid var(--oro); }
+  .pn-lateral .logo { padding: 18px 18px 8px; }
+  .pn-lateral .logo img { width: 160px; display: block; }
+  .pn-lateral .logo div { font-size: 11px; color: var(--suave); margin-top: 6px; letter-spacing: .3px; }
+  .pn-nav { padding: 8px 10px; flex: 1; overflow-y: auto; }
+  .pn-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; color: var(--texto); text-decoration: none; font-weight: 600; font-size: 13.5px; margin-bottom: 2px; cursor: pointer; }
+  .pn-nav a:hover { background: var(--fondo); }
+  .pn-nav a.activo { background: var(--verde-claro); color: var(--verde-osc); }
+  .pn-nav a .ic { width: 20px; text-align: center; }
+  .pn-nav a .num { margin-left: auto; background: var(--oro); color: #4a3700; border-radius: 10px; font-size: 11px; padding: 0 7px; min-width: 20px; text-align: center; }
+  .pn-nav .sep { height: 1px; background: var(--borde); margin: 10px 6px; }
+  .pn-usuario { border-top: 1px solid var(--borde); padding: 12px 16px; font-size: 12.5px; }
+  .pn-usuario b { display: block; font-size: 13px; }
+  .pn-usuario span { color: var(--suave); }
+  .pn-contenido { overflow-y: auto; min-height: 0; }
+  .vista { min-height: 100%; }
+  .pn-vista { max-width: 1120px; margin: 0 auto; padding: 28px 32px 60px; }
+  .pn-titulo { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .pn-titulo h2 { margin: 0; font-size: 22px; }
+  .pn-titulo .acciones { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pn-lead { color: var(--suave); margin: -8px 0 20px; line-height: 1.5; }
+
+  .tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .dato { background: #fff; border: 1px solid var(--borde); border-radius: 12px; padding: 16px; cursor: pointer; }
+  .dato:hover { border-color: #b9d6c4; }
+  .dato .n { font-size: 30px; font-weight: 700; color: var(--verde-osc); line-height: 1.1; }
+  .dato .t { color: var(--suave); font-size: 12.5px; margin-top: 4px; }
+  .dato.alerta .n { color: var(--mal); }
+  .caja { background: #fff; border: 1px solid var(--borde); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  .caja h3 { margin: 0 0 10px; font-size: 15px; }
+  .aviso { background: var(--aviso-claro); color: var(--aviso); border-radius: 10px; padding: 11px 14px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
+  .nota { background: var(--azul-claro); border-radius: 10px; padding: 11px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
+  .enlace-copia { display: flex; gap: 8px; align-items: center; }
+  .enlace-copia input { font-size: 12.5px; color: var(--suave); }
+  .qr { display: flex; gap: 18px; align-items: center; }
+  .qr canvas { border: 1px solid var(--borde); border-radius: 8px; }
+
+  table.tabla { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; }
+  .tabla th { text-align: left; font-size: 11.5px; color: var(--suave); text-transform: uppercase; letter-spacing: .4px; padding: 10px 12px; background: #fafbfa; border-bottom: 1px solid var(--borde); }
+  .tabla td { padding: 10px 12px; border-bottom: 1px solid #eef2ef; vertical-align: middle; }
+  .tabla tr:last-child td { border-bottom: 0; }
+  .tabla tr:hover td { background: #fbfcfb; }
+  .tabla select { padding: 5px 7px; width: auto; }
+  .tabla .acc { white-space: nowrap; text-align: right; }
+  .vacio { text-align: center; color: var(--suave); padding: 34px 10px; background: #fff; border: 1px dashed var(--borde); border-radius: 12px; }
+  .chipe { display: inline-block; padding: 2px 9px; border-radius: 11px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .e-pendiente { background: var(--aviso-claro); color: var(--aviso); }
+  .e-validada, .e-generando { background: var(--azul-claro); color: var(--azul); }
+  .e-firma { background: #efe9f8; color: #5b2c83; }
+  .e-enviado { background: var(--verde-claro); color: var(--verde-osc); }
+  .e-rechazada, .e-anulado { background: #eceeed; color: #6b7570; }
+  .e-revisar { background: var(--mal-claro); color: var(--mal); }
+  .filtros { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .filtros select, .filtros input { width: auto; min-width: 200px; }
+  .seg { display: inline-flex; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; background: #fff; }
+  .seg button { border: 0; background: none; padding: 7px 12px; cursor: pointer; color: var(--suave); font-weight: 600; font-size: 12.5px; }
+  .seg button.activo { background: var(--verde); color: #fff; }
+  .barra-lote { position: sticky; bottom: 0; background: #1f2a33; color: #fff; padding: 10px 14px; border-radius: 10px; display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+  .barra-lote .boton { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+  .barra-lote .boton.primario { background: var(--verde); border-color: var(--verde); }
+  .pn-switch { position: relative; display: inline-block; width: 38px; height: 22px; }
+  .pn-switch input { opacity: 0; width: 0; height: 0; }
+  .pn-switch span { position: absolute; inset: 0; background: #c9d2cd; border-radius: 22px; cursor: pointer; transition: .2s; }
+  .pn-switch span::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .pn-switch input:checked + span { background: var(--verde); }
+  .pn-switch input:checked + span::before { transform: translateX(16px); }
+  .soltar { border: 2px dashed #b9d6c4; background: #fbfdfb; border-radius: 14px; padding: 34px; text-align: center; color: var(--suave); cursor: pointer; transition: .15s; }
+  .soltar.encima { background: var(--verde-claro); border-color: var(--verde); color: var(--verde-osc); }
+  .soltar b { display: block; font-size: 16px; color: var(--texto); margin-bottom: 4px; }
+  .resultado { font-size: 13px; padding: 6px 0; border-bottom: 1px solid #eef2ef; }
+  .resultado.ok::before { content: '✓ '; color: var(--verde); font-weight: 700; }
+  .resultado.ko::before { content: '✗ '; color: var(--mal); font-weight: 700; }
+  .estrellas { color: #e0a31b; letter-spacing: 2px; }
+  .barras div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 3px 0; }
+  .barras i { display: block; height: 10px; background: var(--verde); border-radius: 5px; }
+  .cita { background: #fff; border-left: 3px solid var(--oro); padding: 10px 14px; margin: 8px 0; border-radius: 0 8px 8px 0; line-height: 1.5; }
+  .cita small { display: block; color: var(--suave); margin-top: 4px; }
+
+  .modal-fondo { position: fixed; inset: 0; background: rgba(20,30,25,.45); display: flex; align-items: center; justify-content: center; z-index: 40; padding: 20px; }
+  .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .modal h3 { margin: 0 0 6px; font-size: 18px; }
+  .modal .pie { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .fila3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .cargando-pn { position: fixed; inset: 0; background: rgba(255,255,255,.8); display: flex; align-items: center; justify-content: center; z-index: 60; font-weight: 600; color: var(--verde-osc); }
+
+  @media (max-width: 860px) {
+    .pn-app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .pn-lateral { border-right: 0; border-bottom: 1px solid var(--borde); }
+    .pn-nav { display: flex; overflow-x: auto; padding: 6px; }
+    .pn-nav a { white-space: nowrap; }
+    .pn-nav .sep, .pn-usuario, .pn-lateral .logo div { display: none; }
+    .pn-vista { padding: 18px 16px 50px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────────── ACCESO Y CONFIGURACIÓN ─────────── -->
+<div class="pn-acceso oculto" id="pnAcceso">
+  <div class="pn-franja"></div>
+  <div class="pn-tarjeta">
+    <img id="pnLogoAcceso" alt="Pastoral · Centro Universitario Sagrada Familia">
+    <h1>Certificados de Pastoral</h1>
+    <p class="sub">Servicio de Pastoral y Compromiso Solidario</p>
+
+    <div id="pnPaso1">
+      <label for="pnEmail">Tu correo</label>
+      <input type="email" id="pnEmail" autocomplete="email" placeholder="nombre@fundacionsafa.es">
+      <button class="boton primario" id="pnPedir">Enviarme un código</button>
+      <p class="ayuda" style="margin-top:12px">Te enviaremos un código de 6 cifras. Solo funciona con los correos del equipo de Pastoral.</p>
+    </div>
+    <div id="pnPaso2" class="oculto">
+      <p class="ayuda">Si tu correo está en el equipo, te hemos enviado un código. Revisa también el correo no deseado.</p>
+      <label for="pnCodigo">Código</label>
+      <input type="text" id="pnCodigo" class="pn-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      <button class="boton primario" id="pnEntrar">Entrar</button>
+      <button class="boton" id="pnOtro" style="margin-top:8px">Usar otro correo</button>
+    </div>
+
+    <div id="pnConfig" class="oculto">
+      <div class="nota"><b>Primera configuración.</b> La aplicación todavía no está preparada. Solo la cuenta propietaria (<span id="pnProp"></span>) puede configurarla.</div>
+      <div id="pnConfig1"><button class="boton primario" id="pnConfigPedir">Enviar un código a la cuenta propietaria</button></div>
+      <div id="pnConfig2" class="oculto">
+        <label for="pnConfigNombre">Tu nombre (para el equipo)</label>
+        <input type="text" id="pnConfigNombre" placeholder="Andrés García Pozas">
+        <label for="pnConfigCodigo">Código recibido</label>
+        <input type="text" id="pnConfigCodigo" class="pn-codigo" inputmode="numeric" maxlength="6">
+        <button class="boton primario" id="pnConfigar">Configurar la aplicación</button>
+        <p class="ayuda" style="margin-top:12px">Se crearán en tu Drive, en la carpeta «Pastoral · Certificados (app)», los datos y la bóveda privada. Nadie más tiene acceso.</p>
+      </div>
+    </div>
+    <div id="pnErrorAcceso" class="pn-error oculto"></div>
+  </div>
+  <div class="pn-franja abajo"></div>
+</div>
+
+<!-- ─────────── APLICACIÓN ─────────── -->
+<div class="pn-app oculto" id="pnApp">
+  <aside class="pn-lateral">
+    <div class="franja"></div>
+    <div class="logo"><img id="pnLogoLateral" alt="Pastoral"><div>Certificados · Pastoral y Compromiso Solidario</div></div>
+    <nav class="pn-nav" id="pnNav"></nav>
+    <div class="pn-usuario"><b id="pnUNombre"></b><span id="pnURol"></span> · <a href="#" id="pnSalir">Salir</a></div>
+  </aside>
+  <main class="pn-contenido" id="pnContenido">
+    <section class="vista" id="vInicio"></section>
+    <section class="vista oculto" id="vActividades"></section>
+    <section class="vista oculto" id="vInscripciones"></section>
+    <section class="vista oculto" id="vFirmar"></section>
+    <section class="vista oculto" id="vCertificados"></section>
+    <section class="vista oculto" id="vValoraciones"></section>
+    <section class="vista oculto" id="vEquipo"></section>
+    <section class="vista oculto" id="vAjustes"></section>
+    <section class="vista oculto" id="vRegistro"></section>
+    <!-- La vista del editor (vistaEditor) se mueve aquí al arrancar -->
+  </main>
+</div>
+<div class="cargando-pn oculto" id="pnCargando">Cargando…</div>
+<?!= incluir_('Editor') ?>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const ESTADOS = { pendiente: 'Pendiente', validada: 'Validada', rechazada: 'Rechazada', generando: 'Generando', firma: 'En firma', enviado: 'Enviado', anulado: 'Anulado', revisar: 'Revisar' };
+  const P = { usuario: null, actividades: [], vista: 'inicio', actSel: '' };
+
+  // ─────────── sesión ───────────
+  function guardarToken(t) { window.TOKEN = t; try { if (t) sessionStorage.setItem('pn_token', t); else sessionStorage.removeItem('pn_token'); } catch (e) { } }
+  function tokenGuardado() { try { return sessionStorage.getItem('pn_token') || ''; } catch (e) { return ''; } }
+  function llamar(fn) {
+    const args = Array.prototype.slice.call(arguments, 1);
+    return new Promise((ok, ko) => {
+      google.script.run.withSuccessHandler(ok).withFailureHandler((e) => {
+        const err = e && e.message ? e : new Error(String(e));
+        if (/^SESION/.test(err.message)) window.sesionCaducada();
+        err.message = err.message.replace(/^(SESION|SIN_PERMISO): /, '');
+        ko(err);
+      })[fn].apply(null, [window.TOKEN].concat(args));
+    });
+  }
+  function publico(fn) {
+    const args = Array.prototype.slice.call(arguments, 1);
+    return new Promise((ok, ko) => { google.script.run.withSuccessHandler(ok).withFailureHandler((e) => ko(e && e.message ? e : new Error(String(e))))[fn].apply(null, args); });
+  }
+  window.sesionCaducada = function () { guardarToken(''); mostrarAcceso(); errorAcceso('Tu sesión ha caducado. Vuelve a entrar.'); };
+  function aviso(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 3200); }
+  function cargando(si, t) { $('pnCargando').classList.toggle('oculto', !si); $('pnCargando').textContent = t || 'Cargando…'; }
+  function errorAcceso(t) { $('pnErrorAcceso').textContent = t; $('pnErrorAcceso').classList.toggle('oculto', !t); }
+
+  /** Descarga en el navegador; si el navegador la bloquea, la persona puede pedirlo por correo. */
+  window.descargarArchivo = function (blob, nombre) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = nombre; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
+  };
+  function b64aBlob(b64, tipo) { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type: tipo }); }
+  function aBase64(buf) { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+
+  // ─────────── acceso ───────────
+  function mostrarAcceso() { $('pnApp').classList.add('oculto'); $('pnAcceso').classList.remove('oculto'); }
+  async function arrancar() {
+    $('pnLogoAcceso').src = LOGOS.pastoral; $('pnLogoLateral').src = LOGOS.pastoral;
+    // La vista del editor vive dentro del contenido del panel
+    $('pnContenido').appendChild($('vistaEditor'));
+    enlazarAcceso();
+    cargando(true);
+    try {
+      const est = await publico('api_estado');
+      if (!est.instalado) { mostrarAcceso(); $('pnPaso1').classList.add('oculto'); $('pnConfig').classList.remove('oculto'); $('pnProp').textContent = est.propietario; return; }
+      const t = tokenGuardado();
+      if (t) { guardarToken(t); try { const u = await llamar('api_yo'); entrarApp(u); return; } catch (e) { guardarToken(''); } }
+      mostrarAcceso();
+    } catch (e) { mostrarAcceso(); errorAcceso('No se pudo conectar: ' + e.message); }
+    finally { cargando(false); }
+  }
+  function enlazarAcceso() {
+    $('pnPedir').onclick = async () => {
+      errorAcceso('');
+      const email = $('pnEmail').value.trim();
+      if (!email) return errorAcceso('Escribe tu correo.');
+      $('pnPedir').disabled = true;
+      try { await publico('api_pedirCodigo', email); $('pnPaso1').classList.add('oculto'); $('pnPaso2').classList.remove('oculto'); $('pnCodigo').focus(); }
+      catch (e) { errorAcceso(e.message); } finally { $('pnPedir').disabled = false; }
+    };
+    $('pnEmail').onkeydown = (e) => { if (e.key === 'Enter') $('pnPedir').click(); };
+    $('pnCodigo').onkeydown = (e) => { if (e.key === 'Enter') $('pnEntrar').click(); };
+    $('pnEntrar').onclick = async () => {
+      errorAcceso(''); $('pnEntrar').disabled = true;
+      try { const r = await publico('api_entrar', $('pnEmail').value.trim(), $('pnCodigo').value.trim()); guardarToken(r.token); entrarApp(r.usuario); }
+      catch (e) { errorAcceso(e.message); } finally { $('pnEntrar').disabled = false; }
+    };
+    $('pnOtro').onclick = () => { $('pnPaso2').classList.add('oculto'); $('pnPaso1').classList.remove('oculto'); $('pnCodigo').value = ''; };
+    $('pnConfigPedir').onclick = async () => {
+      errorAcceso(''); $('pnConfigPedir').disabled = true;
+      try { await publico('api_configurarPedirCodigo'); $('pnConfig1').classList.add('oculto'); $('pnConfig2').classList.remove('oculto'); }
+      catch (e) { errorAcceso(e.message); } finally { $('pnConfigPedir').disabled = false; }
+    };
+    $('pnConfigar').onclick = async () => {
+      errorAcceso(''); $('pnConfigar').disabled = true; cargando(true, 'Preparando la aplicación…');
+      try { const r = await publico('api_configurar', $('pnConfigCodigo').value.trim(), $('pnConfigNombre').value.trim()); guardarToken(r.token); entrarApp(r.usuario); aviso('¡Lista! Empieza por «Ajustes» para revisar los firmantes.'); }
+      catch (e) { errorAcceso(e.message); } finally { $('pnConfigar').disabled = false; cargando(false); }
+    };
+    $('pnSalir').onclick = async (e) => { e.preventDefault(); try { await llamar('api_salir'); } catch (x) { } guardarToken(''); location.reload(); };
+  }
+
+  // ─────────── navegación ───────────
+  const MENU = [
+    { id: 'inicio', ic: '🏠', t: 'Inicio', nivel: 1 },
+    { id: 'actividades', ic: '📅', t: 'Actividades', nivel: 2 },
+    { id: 'inscripciones', ic: '👥', t: 'Inscripciones', nivel: 2, num: 'porValidar' },
+    { id: 'editor', ic: '🎨', t: 'Diseñar y generar', nivel: 2, num: 'porGenerar' },
+    { id: 'firmar', ic: '✍️', t: 'Firmar', nivel: 1, num: 'misFirmas', firmante: true },
+    { id: 'certificados', ic: '📄', t: 'Certificados', nivel: 2 },
+    { id: 'valoraciones', ic: '⭐', t: 'Valoraciones', nivel: 2 },
+    { sep: true, nivel: 2 },
+    { id: 'equipo', ic: '🧑‍🤝‍🧑', t: 'Equipo', nivel: 3 },
+    { id: 'ajustes', ic: '⚙️', t: 'Ajustes', nivel: 2 },
+    { id: 'registro', ic: '🗒️', t: 'Registro', nivel: 3 }
+  ];
+  function entrarApp(u) {
+    P.usuario = u;
+    $('pnAcceso').classList.add('oculto'); $('pnApp').classList.remove('oculto');
+    $('pnUNombre').textContent = u.nombre; $('pnURol').textContent = u.rolNombre;
+    pintarMenu({});
+    const h = (location.hash || '').replace('#', '');
+    ir(MENU.some((m) => m.id === h && visible(m)) ? h : (u.rol === 'firmante' ? 'firmar' : 'inicio'));
+  }
+  function visible(m) { return P.usuario && (P.usuario.nivel >= m.nivel || (m.firmante && P.usuario.firmas.length)); }
+  function pintarMenu(cuentas) {
+    $('pnNav').innerHTML = MENU.filter(visible).map((m) => m.sep ? '<div class="sep"></div>' :
+      '<a data-v="' + m.id + '" class="' + (P.vista === m.id ? 'activo' : '') + '"><span class="ic">' + m.ic + '</span>' + m.t +
+      (m.num && cuentas[m.num] ? '<span class="num">' + cuentas[m.num] + '</span>' : '') + '</a>').join('');
+    $('pnNav').querySelectorAll('a[data-v]').forEach((a) => { a.onclick = () => ir(a.dataset.v); });
+  }
+  const VISTAS = { inicio: 'vInicio', actividades: 'vActividades', inscripciones: 'vInscripciones', editor: 'vistaEditor', firmar: 'vFirmar',
+    certificados: 'vCertificados', valoraciones: 'vValoraciones', equipo: 'vEquipo', ajustes: 'vAjustes', registro: 'vRegistro' };
+  async function ir(v, opciones) {
+    P.vista = v;
+    Object.values(VISTAS).forEach((id) => $(id).classList.add('oculto'));
+    $(VISTAS[v]).classList.remove('oculto');
+    $('pnNav').querySelectorAll('a[data-v]').forEach((a) => a.classList.toggle('activo', a.dataset.v === v));
+    try { history.replaceState(null, '', '#' + v); } catch (e) { }
+    try {
+      if (v === 'inicio') await vInicio();
+      if (v === 'actividades') await vActividades();
+      if (v === 'inscripciones') await vInscripciones(opciones);
+      if (v === 'editor') await window.abrirEditor(opciones && opciones.act, opciones && opciones.tab);
+      if (v === 'firmar') await vFirmar();
+      if (v === 'certificados') await vCertificados(opciones);
+      if (v === 'valoraciones') await vValoraciones();
+      if (v === 'equipo') await vEquipo();
+      if (v === 'ajustes') await vAjustes();
+      if (v === 'registro') await vRegistro();
+    } catch (e) { aviso('Error: ' + e.message); }
+    if (v !== 'inicio') llamar('api_resumen').then(pintarMenu).catch(() => { });   // contadores del menú al día
+  }
+  async function actividades() { P.actividades = await llamar('api_actividades'); return P.actividades; }
+  function cab(titulo, acciones, lead) {
+    return '<div class="pn-titulo"><h2>' + titulo + '</h2><div class="acciones">' + (acciones || '') + '</div></div>' + (lead ? '<p class="pn-lead">' + lead + '</p>' : '');
+  }
+  function chip(estado, extra) { return '<span class="chipe e-' + estado + '">' + (ESTADOS[estado] || estado) + (extra ? ' · ' + esc(extra) : '') + '</span>'; }
+
+  // ─────────── INICIO ───────────
+  async function vInicio() {
+    const r = await llamar('api_resumen');
+    pintarMenu(r);
+    const u = P.usuario;
+    const saludo = (new Date().getHours() < 14 ? 'Buenos días' : new Date().getHours() < 21 ? 'Buenas tardes' : 'Buenas noches') + ', ' + esc(u.nombre.split(' ')[0]);
+    const avisos = [];
+    if (u.nivel >= 2 && r.firmantes === 0) avisos.push('No hay firmantes configurados. Ve a «Ajustes».');
+    const t = [
+      u.nivel >= 2 ? '<div class="dato" data-ir="inscripciones"><div class="n">' + r.porValidar + '</div><div class="t">Inscripciones por validar</div></div>' : '',
+      u.nivel >= 2 ? '<div class="dato" data-ir="editor"><div class="n">' + r.porGenerar + '</div><div class="t">Certificados por generar</div></div>' : '',
+      u.firmas.length ? '<div class="dato" data-ir="firmar"><div class="n">' + r.misFirmas + '</div><div class="t">Esperan tu firma</div></div>' : '',
+      u.nivel >= 2 ? '<div class="dato" data-ir="certificados"><div class="n">' + r.enFirma + '</div><div class="t">En proceso de firma</div></div>' : '',
+      u.nivel >= 2 ? '<div class="dato" data-ir="certificados"><div class="n">' + r.enviadosCurso + '</div><div class="t">Enviados en ' + r.curso + '</div></div>' : '',
+      u.nivel >= 2 && r.revisar ? '<div class="dato alerta" data-ir="certificados"><div class="n">' + r.revisar + '</div><div class="t">Para revisar</div></div>' : ''
+    ].join('');
+    $('vInicio').innerHTML = '<div class="pn-vista">' + cab(saludo) +
+      avisos.map((a) => '<div class="aviso">' + a + '</div>').join('') +
+      '<div class="tarjetas">' + t + '</div>' +
+      (u.nivel >= 2 ? '<div class="caja"><h3>Enlace de inscripción para el alumnado</h3>' +
+        '<p class="ayuda" style="margin:0 0 10px">Compártelo en Classroom o proyecta el QR al terminar la actividad. Ahora mismo está abierto para: ' +
+        (r.abiertas.length ? '<b>' + r.abiertas.map(esc).join('</b>, <b>') + '</b>' : '<i>ninguna actividad (ábrelas en «Actividades»)</i>') + '.</p>' +
+        '<div class="qr"><canvas id="qrInscripcion" width="132" height="132"></canvas><div style="flex:1">' +
+        '<div class="enlace-copia"><input type="text" readonly value="' + esc(r.urlInscripcion) + '" id="urlIns"><button class="boton" id="copiarIns">Copiar</button></div>' +
+        '<p class="ayuda">Verificación pública de certificados: <a href="' + esc(r.urlVerificacion) + '" target="_blank">' + esc(r.urlVerificacion) + '</a></p></div></div></div>' : '') +
+      '</div>';
+    $('vInicio').querySelectorAll('[data-ir]').forEach((d) => { d.onclick = () => ir(d.dataset.ir); });
+    if ($('copiarIns')) { $('copiarIns').onclick = () => copiar($('urlIns').value); dibujarQr($('qrInscripcion'), r.urlInscripcion); }
+  }
+  function dibujarQr(canvas, texto) {
+    if (typeof qrcode === 'undefined') return;
+    const q = qrcode(0, 'M'); q.addData(texto); q.make();
+    const n = q.getModuleCount(), x = canvas.getContext('2d'), c = canvas.width / (n + 4);
+    x.fillStyle = '#fff'; x.fillRect(0, 0, canvas.width, canvas.height); x.fillStyle = '#1f2a33';
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect((k + 2) * c, (r + 2) * c, c + .3, c + .3);
+  }
+  async function copiar(t) {
+    try { await navigator.clipboard.writeText(t); aviso('Copiado.'); }
+    catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); aviso('Copiado.'); } catch (x) { } a.remove(); }
+  }
+
+  // ─────────── ACTIVIDADES ───────────
+  async function vActividades() {
+    const acts = await actividades();
+    const filas = acts.map((a) => '<tr>' +
+      '<td><b>' + esc(a.nombre) + '</b><div class="ayuda">' + esc(a.id) + ' · ' + esc(a.tipo || '—') + ' · ' + esc(a.fechas || 'sin fechas') +
+      (a.horas ? ' · ' + a.horas + ' h' : '') + (a.ects ? ' · ' + a.ects + ' ECTS' : '') + '</div></td>' +
+      '<td><label class="pn-switch" title="Inscripción abierta"><input type="checkbox" data-abrir="' + a.id + '"' + (a.abierta ? ' checked' : '') + '><span></span></label></td>' +
+      '<td>' + a.inscritos + (a.pendientes ? ' <span class="chipe e-pendiente">' + a.pendientes + ' por validar</span>' : '') + '</td>' +
+      '<td>' + (a.enviados || 0) + '</td>' +
+      '<td>' + (a.valoracion != null ? '<span class="estrellas">★</span> ' + String(a.valoracion).replace('.', ',') + ' <span class="ayuda">(' + a.nValoraciones + ')</span>' : '<span class="ayuda">—</span>') + '</td>' +
+      '<td class="acc"><button class="boton peq" data-ins="' + a.id + '">Inscripciones</button> <button class="boton peq" data-dis="' + a.id + '">🎨 Diseño</button> ' +
+      '<button class="boton peq" data-edit="' + a.id + '">Editar</button></td></tr>').join('');
+    $('vActividades').innerHTML = '<div class="pn-vista">' + cab('Actividades', '<button class="boton primario" id="nuevaAct">＋ Nueva actividad</button>',
+      'El interruptor abre o cierra la inscripción del alumnado para cada actividad.') +
+      (acts.length ? '<table class="tabla"><thead><tr><th>Actividad</th><th>Inscripción</th><th>Inscritos</th><th>Enviados</th><th>Valoración</th><th></th></tr></thead><tbody>' + filas + '</tbody></table>'
+        : '<div class="vacio">Aún no hay actividades. Crea la primera con «＋ Nueva actividad».</div>') + '</div>';
+    $('nuevaAct').onclick = () => modalActividad({});
+    $('vActividades').querySelectorAll('[data-edit]').forEach((b) => { b.onclick = () => modalActividad(acts.find((a) => a.id === b.dataset.edit)); });
+    $('vActividades').querySelectorAll('[data-ins]').forEach((b) => { b.onclick = () => ir('inscripciones', { act: b.dataset.ins }); });
+    $('vActividades').querySelectorAll('[data-dis]').forEach((b) => { b.onclick = () => ir('editor', { act: b.dataset.dis, tab: 'diseno' }); });
+    $('vActividades').querySelectorAll('[data-abrir]').forEach((c) => {
+      c.onchange = async () => {
+        const a = acts.find((x) => x.id === c.dataset.abrir);
+        try { await llamar('api_guardarActividad', Object.assign({}, a, { abierta: c.checked })); aviso(c.checked ? 'Inscripción abierta.' : 'Inscripción cerrada.'); }
+        catch (e) { c.checked = !c.checked; aviso(e.message); }
+      };
+    });
+  }
+  function modal(html, alAbrir) {
+    const f = document.createElement('div'); f.className = 'modal-fondo';
+    f.innerHTML = '<div class="modal">' + html + '</div>';
+    document.body.appendChild(f);
+    f.onclick = (e) => { if (e.target === f) f.remove(); };
+    const cerrar = () => f.remove();
+    f.querySelectorAll('[data-cerrar]').forEach((b) => { b.onclick = cerrar; });
+    if (alAbrir) alAbrir(f, cerrar);
+    return cerrar;
+  }
+  function modalActividad(a) {
+    const tipos = ['Voluntariado', 'Retiro', 'Jornada', 'Encuentro', 'Celebración', 'Peregrinación', 'Formación', 'Otra'];
+    modal('<h3>' + (a.id ? 'Editar actividad' : 'Nueva actividad') + '</h3>' +
+      '<label>Nombre (tal como saldrá en el certificado)</label><input type="text" id="mNombre" value="' + esc(a.nombre || '') + '">' +
+      '<div class="fila2"><div><label>Tipo</label><select id="mTipo">' + tipos.map((t) => '<option' + (t === a.tipo ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>' +
+      '<div><label>Curso</label><input type="text" id="mCurso" value="' + esc(a.curso || '') + '" placeholder="2026-27"></div></div>' +
+      '<label>Fechas (con artículo, como en el certificado)</label><input type="text" id="mFechas" value="' + esc(a.fechas || '') + '" placeholder="los días 18 y 19 de marzo de 2027">' +
+      '<label>Lugar (vacío = en el Centro Universitario de la Sagrada Familia de Úbeda)</label><input type="text" id="mLugar" value="' + esc(a.lugar || '') + '" placeholder="en la Casa de Espiritualidad de Úbeda">' +
+      '<div class="fila2"><div><label>Horas</label><input type="number" min="0" step="0.5" id="mHoras" value="' + (a.horas || '') + '"></div>' +
+      '<div><label>Créditos ECTS</label><input type="number" min="0" step="0.5" id="mEcts" value="' + (a.ects || '') + '"></div></div>' +
+      '<label style="display:flex;gap:10px;align-items:center;margin-top:16px"><span class="pn-switch"><input type="checkbox" id="mAbierta"' + (a.abierta ? ' checked' : '') + '><span></span></span> Inscripción abierta</label>' +
+      '<div class="pie">' + (a.id && !a.inscritos ? '<button class="boton peligro" id="mBorrar" style="margin-right:auto">Borrar</button>' : '') +
+      '<button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="mGuardar">Guardar</button></div>',
+      (f, cerrar) => {
+        f.querySelector('#mGuardar').onclick = async () => {
+          try {
+            await llamar('api_guardarActividad', { id: a.id, nombre: f.querySelector('#mNombre').value, tipo: f.querySelector('#mTipo').value,
+              curso: f.querySelector('#mCurso').value.trim(), fechas: f.querySelector('#mFechas').value, lugar: f.querySelector('#mLugar').value,
+              horas: f.querySelector('#mHoras').value, ects: f.querySelector('#mEcts').value, abierta: f.querySelector('#mAbierta').checked });
+            cerrar(); aviso('Actividad guardada.'); vActividades();
+          } catch (e) { aviso(e.message); }
+        };
+        const b = f.querySelector('#mBorrar');
+        if (b) b.onclick = async () => { if (!confirm('¿Borrar la actividad?')) return; try { await llamar('api_borrarActividad', a.id); cerrar(); vActividades(); } catch (e) { aviso(e.message); } };
+        f.querySelector('#mNombre').focus();
+      });
+  }
+
+  // ─────────── INSCRIPCIONES ───────────
+  async function vInscripciones(op) {
+    const acts = P.actividades.length ? P.actividades : await actividades();
+    if (op && op.act) P.actSel = op.act;
+    if (!P.actSel || !acts.some((a) => a.id === P.actSel)) P.actSel = (acts.find((a) => a.pendientes) || acts[0] || {}).id || '';
+    if (!acts.length) { $('vInscripciones').innerHTML = '<div class="pn-vista">' + cab('Inscripciones') + '<div class="vacio">Primero crea una actividad.</div></div>'; return; }
+    const lista = await llamar('api_inscripciones', P.actSel);
+    const filtro = P.filtroIns || 'todas';
+    const vis = lista.filter((i) => filtro === 'todas' || i.estado === filtro || (filtro === 'validada' && i.estado === 'generando'));
+    const n = (e) => lista.filter((i) => i.estado === e).length;
+    const roles = ['Participante', 'Organización', 'Coordinación'];
+    const editable = (e) => ['pendiente', 'validada', 'rechazada', 'revisar'].indexOf(e) > -1;
+    $('vInscripciones').innerHTML = '<div class="pn-vista">' + cab('Inscripciones', '<button class="boton primario" id="irGenerar">🖨️ Generar certificados (' + (n('validada') + n('generando')) + ')</button>',
+      'Comprueba quién participó y con qué rol, y valida. Las personas validadas pasan a «Diseñar y generar».') +
+      '<div class="filtros"><select id="selAct">' + acts.map((a) => '<option value="' + a.id + '"' + (a.id === P.actSel ? ' selected' : '') + '>' + esc(a.nombre) + '</option>').join('') + '</select>' +
+      '<div class="seg" id="segFiltro">' + [['todas', 'Todas (' + lista.length + ')'], ['pendiente', 'Por validar (' + n('pendiente') + ')'], ['validada', 'Validadas (' + (n('validada') + n('generando')) + ')'], ['firma', 'En firma (' + n('firma') + ')'], ['enviado', 'Enviadas (' + n('enviado') + ')'], ['rechazada', 'Rechazadas (' + n('rechazada') + ')']]
+        .map((f) => '<button data-f="' + f[0] + '" class="' + (f[0] === filtro ? 'activo' : '') + '">' + f[1] + '</button>').join('') + '</div></div>' +
+      (vis.length ? '<table class="tabla"><thead><tr><th><input type="checkbox" id="selTodas"></th><th>Persona</th><th>DNI/NIE</th><th>Rol</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        vis.map((i) => '<tr data-reg="' + i.reg + '"><td>' + (editable(i.estado) ? '<input type="checkbox" class="sel">' : '') + '</td>' +
+          '<td><b>' + esc(i.nombreCompleto) + '</b><div class="ayuda">' + esc(i.emailOculto) + ' · ' + esc(i.fecha) + (i.notas ? ' · <span style="color:var(--mal)">' + esc(i.notas) + '</span>' : '') + '</div></td>' +
+          '<td><span class="dni">' + esc(i.dniOculto) + '</span> <a href="#" class="ver" title="Ver DNI">👁</a></td>' +
+          '<td>' + (editable(i.estado) ? '<select class="rol">' + roles.map((r) => '<option' + (r === i.rol ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' : esc(i.rol)) + '</td>' +
+          '<td>' + chip(i.estado, i.codigo) + '</td>' +
+          '<td class="acc">' + (editable(i.estado) ? '<button class="boton peq corregir">Corregir datos</button>' : '') + '</td></tr>').join('') + '</tbody></table>'
+        : '<div class="vacio">No hay inscripciones en este filtro.</div>') +
+      '<div class="barra-lote oculto" id="lote"><span id="loteN"></span><span style="margin-left:auto"></span>' +
+      '<button class="boton primario" data-lote="validada">✔ Validar</button><button class="boton" data-lote="rechazada">Rechazar</button><button class="boton" data-lote="pendiente">Volver a pendiente</button></div></div>';
+    const v = $('vInscripciones');
+    $('selAct').onchange = () => { P.actSel = $('selAct').value; vInscripciones(); };
+    v.querySelectorAll('#segFiltro button').forEach((b) => { b.onclick = () => { P.filtroIns = b.dataset.f; vInscripciones(); }; });
+    $('irGenerar').onclick = () => ir('editor', { act: P.actSel, tab: 'generar' });
+    const actualizarLote = () => { const n2 = v.querySelectorAll('.sel:checked').length; $('lote').classList.toggle('oculto', !n2); $('loteN').textContent = n2 + ' seleccionada(s)'; };
+    v.querySelectorAll('.sel').forEach((c) => { c.onchange = actualizarLote; });
+    if ($('selTodas')) $('selTodas').onchange = () => { v.querySelectorAll('.sel').forEach((c) => { c.checked = $('selTodas').checked; }); actualizarLote(); };
+    v.querySelectorAll('[data-lote]').forEach((b) => {
+      b.onclick = async () => {
+        const regs = [...v.querySelectorAll('.sel:checked')].map((c) => c.closest('tr').dataset.reg);
+        try { const k = await llamar('api_cambiarInscripciones', regs, { estado: b.dataset.lote }); aviso(k + ' actualizada(s).'); vInscripciones(); actividades(); }
+        catch (e) { aviso(e.message); }
+      };
+    });
+    v.querySelectorAll('select.rol').forEach((s) => {
+      s.onchange = async () => { try { await llamar('api_cambiarInscripciones', [s.closest('tr').dataset.reg], { rol: s.value }); aviso('Rol cambiado.'); } catch (e) { aviso(e.message); } };
+    });
+    v.querySelectorAll('a.ver').forEach((a) => {
+      a.onclick = async (e) => { e.preventDefault(); const tr = a.closest('tr'); try { tr.querySelector('.dni').textContent = await llamar('api_revelarDni', tr.dataset.reg); a.remove(); } catch (x) { aviso(x.message); } };
+    });
+    v.querySelectorAll('button.corregir').forEach((b) => {
+      b.onclick = () => {
+        const i = lista.find((x) => x.reg === b.closest('tr').dataset.reg);
+        modal('<h3>Corregir datos</h3><p class="ayuda">Los cambios se aplican a todas las inscripciones de esta persona y quedan anotados.</p>' +
+          '<div class="fila2"><div><label>Nombre</label><input type="text" id="cNombre" value="' + esc(i.nombre) + '"></div><div><label>Apellidos</label><input type="text" id="cApellidos" value="' + esc(i.apellidos) + '"></div></div>' +
+          '<label>DNI/NIE (déjalo vacío para no cambiarlo)</label><input type="text" id="cDni" placeholder="' + esc(i.dniOculto) + '">' +
+          '<div class="pie"><button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="cGuardar">Guardar</button></div>', (f, cerrar) => {
+          f.querySelector('#cGuardar').onclick = async () => {
+            const c = { nombre: f.querySelector('#cNombre').value, apellidos: f.querySelector('#cApellidos').value };
+            if (f.querySelector('#cDni').value.trim()) c.dni = f.querySelector('#cDni').value;
+            try { await llamar('api_corregirPersona', i.persona, c); cerrar(); aviso('Datos corregidos.'); vInscripciones(); } catch (e) { aviso(e.message); }
+          };
+        });
+      };
+    });
+  }
+
+  // ─────────── FIRMAR ───────────
+  async function vFirmar() {
+    const lista = await llamar('api_certificados', { misFirmas: true });
+    const u = P.usuario;
+    $('vFirmar').innerHTML = '<div class="pn-vista">' + cab('Firmar', lista.length ? '<button class="boton primario" id="descZip">⬇ Descargar todos (ZIP)</button><button class="boton" id="mailZip">✉ Enviármelos por correo</button>' : '',
+      'Descarga los certificados, fírmalos con Autofirma (firma visible en tu hueco) y arrástralos aquí. No cambies el nombre de los archivos.') +
+      (!u.firmas.length && u.rol === 'admin' ? '<div class="nota">No figuras como firmante en «Ajustes», pero como administración puedes subir PDF firmados por otra persona.</div>' : '') +
+      '<div class="caja"><h3>' + lista.length + ' certificado(s) esperan tu firma</h3>' +
+      (lista.length ? '<table class="tabla" style="border:0"><tbody>' + lista.map((c) => '<tr><td><b>' + esc(c.nombre) + '</b><div class="ayuda">' + esc(c.actividad) + ' · ' + esc(c.rol) + '</div></td><td>' + esc(c.codigo) + '</td><td>Firma ' + (c.firmas + 1) + ' de ' + c.totalFirmas + '</td></tr>').join('') + '</tbody></table>'
+        : '<p class="ayuda" style="margin:0">Nada pendiente. Te avisaremos por correo cuando haya más.</p>') + '</div>' +
+      '<div class="soltar" id="zona"><b>Arrastra aquí los PDF firmados</b>o pulsa para elegirlos<input type="file" id="archivos" accept="application/pdf" multiple class="oculto"></div>' +
+      '<div id="resultados" style="margin-top:14px"></div></div>';
+    if ($('descZip')) $('descZip').onclick = () => descargarZip(lista);
+    if ($('mailZip')) $('mailZip').onclick = async () => { try { cargando(true, 'Preparando el correo…'); const n = await llamar('api_enviarmeZip'); aviso('Enviado: ' + n + ' PDF en un ZIP a tu correo.'); } catch (e) { aviso(e.message); } finally { cargando(false); } };
+    const zona = $('zona');
+    zona.onclick = () => $('archivos').click();
+    $('archivos').onchange = (e) => subirFirmados([...e.target.files]);
+    zona.ondragover = (e) => { e.preventDefault(); zona.classList.add('encima'); };
+    zona.ondragleave = () => zona.classList.remove('encima');
+    zona.ondrop = (e) => { e.preventDefault(); zona.classList.remove('encima'); subirFirmados([...e.dataTransfer.files].filter((f) => /\.pdf$/i.test(f.name))); };
+  }
+  async function descargarZip(lista) {
+    try {
+      cargando(true, 'Preparando el ZIP…');
+      const zip = new JSZip();
+      for (let k = 0; k < lista.length; k++) {
+        $('pnCargando').textContent = 'Preparando el ZIP… ' + (k + 1) + ' de ' + lista.length;
+        const r = await llamar('api_pdf', lista[k].codigo);
+        zip.file(r.nombre, r.base64, { base64: true });
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      window.descargarArchivo(blob, 'Certificados para firmar.zip');
+      aviso('Descargado. Si no ves el archivo, usa «Enviármelos por correo».');
+    } catch (e) { aviso(e.message); } finally { cargando(false); }
+  }
+  async function subirFirmados(archivos) {
+    if (!archivos.length) return;
+    const res = $('resultados');
+    res.innerHTML = '<div class="caja"><h3>Subiendo ' + archivos.length + ' archivo(s)…</h3><div id="resLista"></div></div>';
+    let ok = 0;
+    for (const f of archivos) {
+      const linea = document.createElement('div'); linea.className = 'resultado'; linea.textContent = f.name + '…'; $('resLista').appendChild(linea);
+      try {
+        const r = await llamar('api_subirFirmado', f.name, aBase64(await f.arrayBuffer()));
+        if (r.ok) { ok++; linea.className = 'resultado ok'; linea.textContent = r.codigo + (r.enviado ? ' · enviado al alumno/a' : ' · pasa a ' + r.siguiente); }
+        else { linea.className = 'resultado ko'; linea.textContent = f.name + ': ' + r.motivo; }
+      } catch (e) { linea.className = 'resultado ko'; linea.textContent = f.name + ': ' + e.message; }
+    }
+    try { await llamar('api_finSubida'); } catch (e) { }
+    res.querySelector('h3').textContent = 'Hecho: ' + ok + ' de ' + archivos.length + ' correcto(s).';
+    setTimeout(() => vFirmar().then(() => { $('resultados').replaceWith(res); }), 600);
+  }
+
+  // ─────────── CERTIFICADOS ───────────
+  async function vCertificados() {
+    const acts = P.actividades.length ? P.actividades : await actividades();
+    const lista = await llamar('api_certificados', { actividad: P.filtroCertAct || '' });
+    const est = P.filtroCertEst || '';
+    const q = (P.buscarCert || '').toLowerCase();
+    const vis = lista.filter((c) => (!est || c.estado === est) && (!q || (c.nombre + ' ' + c.codigo).toLowerCase().indexOf(q) > -1));
+    $('vCertificados').innerHTML = '<div class="pn-vista">' + cab('Certificados', '', 'Todos los certificados emitidos y en qué punto está cada uno.') +
+      '<div class="filtros"><select id="fAct"><option value="">Todas las actividades</option>' + acts.map((a) => '<option value="' + a.id + '"' + (a.id === P.filtroCertAct ? ' selected' : '') + '>' + esc(a.nombre) + '</option>').join('') + '</select>' +
+      '<select id="fEst"><option value="">Todos los estados</option>' + ['generando', 'firma', 'enviado', 'revisar', 'anulado'].map((e) => '<option value="' + e + '"' + (e === est ? ' selected' : '') + '>' + ESTADOS[e] + '</option>').join('') + '</select>' +
+      '<input type="text" id="fBuscar" placeholder="Buscar nombre o código" value="' + esc(P.buscarCert || '') + '"></div>' +
+      (vis.length ? '<table class="tabla"><thead><tr><th>Código</th><th>Persona</th><th>Actividad</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        vis.map((c) => '<tr data-c="' + c.codigo + '"><td><b>' + esc(c.codigo) + '</b></td><td>' + esc(c.nombre) + '<div class="ayuda">' + esc(c.rol) + '</div></td><td>' + esc(c.actividad) + '</td>' +
+          '<td>' + chip(c.estado, c.estado === 'firma' ? (c.firmas + 1) + '/' + c.totalFirmas + ' · ' + c.pendienteDe : c.estado === 'enviado' ? c.enviado : '') + (c.notas ? '<div class="ayuda">' + esc(c.notas) + '</div>' : '') + '</td>' +
+          '<td class="acc">' + (['firma', 'enviado', 'revisar'].indexOf(c.estado) > -1 ? '<button class="boton peq" data-a="pdf">PDF</button> ' : '') +
+          (c.estado === 'enviado' ? '<button class="boton peq" data-a="reenviar">Reenviar</button> ' : '') +
+          (['firma', 'revisar', 'generando'].indexOf(c.estado) > -1 ? '<button class="boton peq" data-a="rehacer">Rehacer</button> ' : '') +
+          (c.estado !== 'anulado' ? '<button class="boton peq peligro" data-a="anular">Anular</button>' : '') + '</td></tr>').join('') + '</tbody></table>'
+        : '<div class="vacio">No hay certificados con este filtro.</div>') + '</div>';
+    $('fAct').onchange = () => { P.filtroCertAct = $('fAct').value; vCertificados(); };
+    $('fEst').onchange = () => { P.filtroCertEst = $('fEst').value; vCertificados(); };
+    let tm; $('fBuscar').oninput = () => { clearTimeout(tm); tm = setTimeout(() => { P.buscarCert = $('fBuscar').value; vCertificados().then(() => { $('fBuscar').focus(); $('fBuscar').setSelectionRange(99, 99); }); }, 350); };
+    $('vCertificados').querySelectorAll('[data-a]').forEach((b) => {
+      b.onclick = async () => {
+        const c = b.closest('tr').dataset.c, a = b.dataset.a;
+        try {
+          if (a === 'pdf') { cargando(true); const r = await llamar('api_pdf', c); window.descargarArchivo(b64aBlob(r.base64, 'application/pdf'), r.nombre); }
+          if (a === 'reenviar' && confirm('¿Reenviar el certificado ' + c + ' por correo?')) { await llamar('api_reenviar', c); aviso('Reenviado.'); }
+          if (a === 'rehacer' && confirm('¿Rehacer ' + c + '? Se retira el PDF actual y vuelve a «Validada» para generarlo de nuevo con otro código.')) { await llamar('api_rehacer', c); vCertificados(); }
+          if (a === 'anular' && confirm('¿Anular ' + c + '? La verificación pública dirá que no es válido.')) { await llamar('api_anular', c); vCertificados(); }
+        } catch (e) { aviso(e.message); } finally { cargando(false); }
+      };
+    });
+  }
+
+  // ─────────── VALORACIONES ───────────
+  async function vValoraciones() {
+    const acts = P.actividades.length ? P.actividades : await actividades();
+    const sel = P.actVal || (acts.find((a) => a.nValoraciones) || acts[0] || {}).id || '';
+    const lista = sel ? await llamar('api_valoraciones', sel) : [];
+    const media = lista.length ? lista.reduce((s, v) => s + v.valor, 0) / lista.length : 0;
+    const dist = [5, 4, 3, 2, 1].map((n) => lista.filter((v) => v.valor === n).length);
+    const max = Math.max(1, ...dist);
+    const coment = lista.filter((v) => v.comentario);
+    $('vValoraciones').innerHTML = '<div class="pn-vista">' + cab('Valoraciones', coment.some((v) => v.citable) ? '<button class="boton" id="copCit">Copiar citables para el boletín</button>' : '',
+      'Son anónimas: no se guardan junto al nombre de quien las escribe.') +
+      '<div class="filtros"><select id="vSel">' + acts.map((a) => '<option value="' + a.id + '"' + (a.id === sel ? ' selected' : '') + '>' + esc(a.nombre) + '</option>').join('') + '</select></div>' +
+      (lista.length ? '<div class="fila2"><div class="caja"><h3>Media</h3><div style="font-size:40px;font-weight:700;color:var(--verde-osc)">' + media.toFixed(1).replace('.', ',') + '</div><div class="ayuda">' + lista.length + ' valoración(es) de 1 a 5</div></div>' +
+        '<div class="caja barras"><h3>Reparto</h3>' + dist.map((d, i) => '<div><span style="width:24px">' + (5 - i) + '★</span><i style="width:' + Math.round(d / max * 180) + 'px"></i><span class="ayuda">' + d + '</span></div>').join('') + '</div></div>' +
+        '<div class="caja"><h3>Comentarios (' + coment.length + ')</h3>' + (coment.length ? coment.map((v) => '<div class="cita">' + esc(v.comentario) + '<small>' + '★'.repeat(v.valor) + ' · ' + esc(v.fecha) + (v.citable ? ' · <b>citable en el boletín</b>' : '') + '</small></div>').join('') : '<p class="ayuda">Sin comentarios.</p>') + '</div>'
+        : '<div class="vacio">Aún no hay valoraciones para esta actividad.</div>') + '</div>';
+    $('vSel').onchange = () => { P.actVal = $('vSel').value; vValoraciones(); };
+    if ($('copCit')) $('copCit').onclick = () => copiar(coment.filter((v) => v.citable).map((v) => '«' + v.comentario + '»').join('\n\n'));
+  }
+
+  // ─────────── EQUIPO ───────────
+  async function vEquipo() {
+    const lista = await llamar('api_equipo');
+    const roles = { admin: 'Administración', coordinacion: 'Coordinación', firmante: 'Firmante' };
+    $('vEquipo').innerHTML = '<div class="pn-vista">' + cab('Equipo', '<button class="boton primario" id="nuevoM">＋ Añadir persona</button>',
+      'Quién puede entrar y qué puede hacer. Cada persona entra con un código que recibe en su correo.') +
+      '<div class="nota"><b>Administración:</b> todo, incluido el equipo y el registro. <b>Coordinación:</b> actividades, inscripciones, diseño, generación y certificados. <b>Firmante:</b> solo firmar los certificados que le tocan.</div>' +
+      '<table class="tabla"><thead><tr><th>Persona</th><th>Papel</th><th>Activa</th><th></th></tr></thead><tbody>' +
+      lista.map((m) => '<tr data-e="' + esc(m.email) + '"><td><b>' + esc(m.nombre) + '</b><div class="ayuda">' + esc(m.email) + '</div></td><td>' + esc(m.rolNombre) + '</td><td>' + (m.activo ? 'Sí' : 'No') + '</td><td class="acc"><button class="boton peq">Editar</button></td></tr>').join('') +
+      '</tbody></table></div>';
+    const editar = (m) => modal('<h3>' + (m.email ? 'Editar persona' : 'Añadir persona') + '</h3>' +
+      '<label>Correo</label><input type="email" id="eEmail" value="' + esc(m.email || '') + '"' + (m.email ? ' readonly' : '') + '>' +
+      '<label>Nombre</label><input type="text" id="eNombre" value="' + esc(m.nombre || '') + '">' +
+      '<label>Papel</label><select id="eRol">' + Object.keys(roles).map((r) => '<option value="' + r + '"' + (r === (m.rol || 'coordinacion') ? ' selected' : '') + '>' + roles[r] + '</option>').join('') + '</select>' +
+      '<label style="display:flex;gap:10px;align-items:center;margin-top:16px"><span class="pn-switch"><input type="checkbox" id="eActivo"' + (m.activo !== false ? ' checked' : '') + '><span></span></span> Puede entrar</label>' +
+      (m.email ? '' : '<p class="ayuda">Le llegará un correo de bienvenida con el enlace a la aplicación.</p>') +
+      '<div class="pie"><button class="boton" data-cerrar>Cancelar</button><button class="boton primario" id="eGuardar">Guardar</button></div>', (f, cerrar) => {
+      f.querySelector('#eGuardar').onclick = async () => {
+        try { await llamar('api_guardarMiembro', { email: f.querySelector('#eEmail').value, nombre: f.querySelector('#eNombre').value, rol: f.querySelector('#eRol').value, activo: f.querySelector('#eActivo').checked }); cerrar(); aviso('Guardado.'); vEquipo(); }
+        catch (e) { aviso(e.message); }
+      };
+    });
+    $('nuevoM').onclick = () => editar({});
+    $('vEquipo').querySelectorAll('tr[data-e] button').forEach((b) => { b.onclick = () => editar(lista.find((m) => m.email === b.closest('tr').dataset.e)); });
+  }
+
+  // ─────────── AJUSTES ───────────
+  async function vAjustes() {
+    const a = await llamar('api_ajustes');
+    const admin = P.usuario.rol === 'admin';
+    const equipo = admin ? await llamar('api_equipo') : [];
+    const opcionesEmail = (sel) => '<option value="">— sin asignar —</option>' + equipo.filter((m) => m.activo).map((m) => '<option value="' + esc(m.email) + '"' + (m.email === sel ? ' selected' : '') + '>' + esc(m.nombre) + ' · ' + esc(m.email) + '</option>').join('');
+    const filaF = (f, i) => '<div class="caja firm" style="padding:14px 16px"><div class="fila3">' +
+      '<div><label>Firma ' + (i + 1) + ' · cargo</label><input type="text" class="fCargo" value="' + esc(f.cargo) + '"' + (admin ? '' : ' readonly') + '></div>' +
+      '<div><label>Nombre que sale en el certificado</label><input type="text" class="fNombre" value="' + esc(f.nombre) + '"' + (admin ? '' : ' readonly') + '></div>' +
+      '<div><label>Quién firma (persona del equipo)</label>' + (admin ? '<select class="fEmail">' + opcionesEmail(f.email) + '</select>' : '<input type="text" readonly value="' + esc(f.email || '—') + '">') + '</div></div>' +
+      (admin ? '<div style="text-align:right;margin-top:6px"><button class="boton peq peligro quitarF">Quitar</button></div>' : '') + '</div>';
+    $('vAjustes').innerHTML = '<div class="pn-vista">' + cab('Ajustes') +
+      '<h3 style="margin:6px 0 10px">Firmantes, en orden de firma</h3>' +
+      '<p class="ayuda" style="margin:-4px 0 12px">Cada certificado pasa por estas personas en este orden. Quien firma tiene que estar en «Equipo» (con el papel «Firmante» o superior).</p>' +
+      '<div id="listaF">' + a.firmantes.map(filaF).join('') + '</div>' +
+      (admin ? '<div style="display:flex;gap:8px"><button class="boton" id="masF">＋ Añadir firmante</button><button class="boton primario" id="guardarF">Guardar firmantes</button></div>' : '') +
+      '<h3 style="margin:28px 0 10px">Enlaces</h3><div class="caja">' +
+      '<p style="margin:0 0 6px"><b>Panel del equipo:</b> <a href="' + esc(a.urlApp) + '" target="_blank">' + esc(a.urlApp) + '</a></p>' +
+      '<p style="margin:0 0 6px"><b>Inscripción del alumnado:</b> <a href="' + esc(a.urlApp) + '?p=inscripcion" target="_blank">' + esc(a.urlApp) + '?p=inscripcion</a></p>' +
+      '<p style="margin:0"><b>Verificación pública:</b> <a href="' + esc(a.urlApp) + '?p=verificar" target="_blank">' + esc(a.urlApp) + '?p=verificar</a></p></div>' +
+      (admin ? '<h3 style="margin:28px 0 10px">Privacidad · cierre de curso</h3><div class="caja"><p class="ayuda" style="margin-top:0">Sustituye los nombres por iniciales, borra de la bóveda a quien no tenga actividad en cursos posteriores y retira los PDF de ese curso. La verificación sigue funcionando. No se puede deshacer.</p>' +
+        '<div style="display:flex;gap:8px;max-width:420px"><input type="text" id="cursoAnon" placeholder="2025-26"><button class="boton peligro" id="anonimizar">Anonimizar curso</button></div></div>' : '') +
+      '<p class="ayuda" style="margin-top:24px">Versión ' + esc(a.version) + ' · <a href="' + esc(a.repo) + '" target="_blank">código fuente</a></p></div>';
+    if (!admin) return;
+    const enlazarQuitar = () => $('listaF').querySelectorAll('.quitarF').forEach((b) => { b.onclick = () => b.closest('.firm').remove(); });
+    enlazarQuitar();
+    $('masF').onclick = () => { $('listaF').insertAdjacentHTML('beforeend', filaF({ cargo: '', nombre: '', email: '' }, $('listaF').children.length)); enlazarQuitar(); };
+    $('guardarF').onclick = async () => {
+      const lista = [...$('listaF').querySelectorAll('.firm')].map((d) => ({ cargo: d.querySelector('.fCargo').value, nombre: d.querySelector('.fNombre').value, email: d.querySelector('.fEmail').value }));
+      try { await llamar('api_guardarFirmantes', lista); aviso('Firmantes guardados.'); const u = await llamar('api_yo'); P.usuario = u; pintarMenu({}); vAjustes(); } catch (e) { aviso(e.message); }
+    };
+    $('anonimizar').onclick = async () => {
+      const c = $('cursoAnon').value.trim();
+      if (!confirm('¿Anonimizar el curso ' + c + ' y anteriores? No se puede deshacer.')) return;
+      try { aviso(await llamar('api_anonimizar', c)); } catch (e) { aviso(e.message); }
+    };
+  }
+
+  // ─────────── REGISTRO ───────────
+  async function vRegistro() {
+    const lista = await llamar('api_registro', 300);
+    $('vRegistro').innerHTML = '<div class="pn-vista">' + cab('Registro', '', 'Las últimas 300 acciones. No guarda DNI ni correos del alumnado.') +
+      '<table class="tabla"><thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>' +
+      lista.map((r) => '<tr><td style="white-space:nowrap">' + esc(r.fecha) + '</td><td>' + esc(r.usuario) + '</td><td><b>' + esc(r.accion) + '</b></td><td class="ayuda">' + esc(r.detalle) + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  }
+
+  arrancar();
+})();
+</script>
+</body>
+</html>

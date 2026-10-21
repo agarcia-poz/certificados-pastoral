@@ -1,5 +1,5 @@
-// Pruebas del flujo completo con Google simulado + el motor de PDF real.
-//   cd tests && npm install && node run.mjs
+// Pruebas de la aplicación web con Google simulado + el motor de PDF real.
+//   cd tests && npm install && npm test
 import fs from 'fs';
 import vm from 'vm';
 import { createRequire } from 'module';
@@ -12,158 +12,153 @@ const qrgen = require('qrcode-generator');
 const Motor = require('../src/motor.js');
 const RAIZ = new URL('..', import.meta.url).pathname;
 
-const { ctx, estado, gestion, archivoFalso } = crearGoogle();
+const PROP = 'coordinacion@centro.test';
+const { ctx, estado, gestion } = crearGoogle({ propietario: PROP });
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(RAIZ + 'dist/CertificadosPastoral.gs', 'utf8') + '\n;this.G = { actualizarApp, incluir_, instalar, actualizarFormulario, alEnviarFormulario, onEdit, tareaPeriodica, doGet, dniValido_, iniciales_, cursoAcademico_, api_inicio, api_diseno, api_guardarDiseno, api_subirImagen, api_imagen, api_cola, api_reservar, api_guardarPdf, api_finTanda, P, A, EST };', ctx);
-const G = ctx.G;
+vm.runInContext(fs.readFileSync(RAIZ + 'dist/CertificadosPastoral.gs', 'utf8') + '\n;this.G = this;', ctx);
+const G = ctx;
 
 let fallos = 0, ok = 0;
 const comprobar = (cond, msg) => { if (cond) ok++; else { fallos++; console.log('  ✗ ' + msg); } };
 const lanza = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+const ultimoCodigo = (para) => { const c = estado.correos.filter(x => x.para === para && /código de acceso/i.test(x.asunto)).at(-1); return c && c.html.match(/font-weight:bold; color:#1f2a33;">(\d{6})</)[1]; };
+const entrar = (email) => { estado.cache = Object.fromEntries(Object.entries(estado.cache).filter(([k]) => !k.startsWith('cod_'))); G.api_pedirCodigo(email); return G.api_entrar(email, ultimoCodigo(email)).token; };
 
 // ── 0. Funciones puras
-comprobar(G.dniValido_('12345678Z') && !G.dniValido_('12345678A') && G.dniValido_('X1234567L'), 'validación de DNI/NIE');
-comprobar(G.cursoAcademico_(new Date('2026-10-20')) === '2026-27' && G.cursoAcademico_(new Date('2027-03-01')) === '2026-27', 'curso académico');
-comprobar(G.iniciales_('María de la Paz Ruiz') === 'M. P. R.', 'iniciales');
+comprobar(G.dniValido_('12345678Z') && !G.dniValido_('12345678A') && G.dniValido_('X1234567L'), 'DNI/NIE');
+comprobar(G.cursoAcademico_(new Date('2026-10-20')) === '2026-27', 'curso académico');
+comprobar(G.jsSeguro_({ a: '</script><b>' }).indexOf('</') < 0, 'valores seguros dentro de <script>');
 
-// ── 1. Instalación
-G.instalar();
-const hoja = (n) => gestion.getSheetByName(n);
-const boveda = estado.libros[estado.props.BOVEDA_ID].getSheetByName('Personas');
-comprobar(!!boveda, 'bóveda en archivo aparte');
-comprobar(hoja('Ajustes').getRange(2, 1, 5, 3).getValues().filter(f => f[2]).length === 2, 'hoja Ajustes con 2 firmantes');
-comprobar(!!hoja('Diseños'), 'hoja Diseños');
-const carpetas = JSON.parse(estado.props.CARPETAS);
-comprobar(carpetas.bandeja.length === 2 && carpetas.entrega.length === 2 && carpetas.raiz, 'carpetas por firmante');
-// El segundo firmante tiene email en Ajustes (lo rellena la coordinación)
-hoja('Ajustes').getRange(2, 4).setValue('coordinacion@centro.test');
-hoja('Ajustes').getRange(3, 4).setValue('firmante2@centro.test');
+// ── 1. Configuración inicial
+comprobar(G.api_estado().instalado === false, 'sin instalar al principio');
+comprobar(/Panel|vistaEditor|pnAcceso/.test(G.doGet({ parameter: {} }).html), 'el panel se sirve');
+G.api_configurarPedirCodigo();
+const codigoConfig = ultimoCodigo(PROP);
+comprobar(/\d{6}/.test(codigoConfig), 'código de configuración enviado a la propietaria');
+comprobar(/incorrecto/.test(lanza(() => G.api_configurar('000000', 'Andrés')) || ''), 'código incorrecto rechazado');
+const sAdmin = G.api_configurar(codigoConfig, 'Andrés García Pozas');
+const tA = sAdmin.token;
+comprobar(G.api_estado().instalado && sAdmin.usuario.rol === 'admin', 'configurada y propietaria como administradora');
+comprobar(/ya está configurada/.test(lanza(() => G.api_configurarPedirCodigo()) || ''), 'no se puede reconfigurar');
 
-// ── 2. Actividades y formulario
-const shA = hoja('Actividades');
-shA.getRange(2, G.A.ABIERTA, 2, 1).setValues([[true], [true]]);
-G.actualizarFormulario();
-const grid = Object.values(estado.items).find(i => i.titulo.startsWith('¿En qué actividades'));
-comprobar(grid.filas.length === 2, 'formulario con 2 actividades');
+// ── 2. Acceso y equipo
+const antesCorreos = estado.correos.length;
+G.api_pedirCodigo('intruso@fuera.test');
+comprobar(estado.correos.length === antesCorreos, 'a un correo ajeno no se le envía código (y no se revela)');
+comprobar(/SESION/.test(lanza(() => G.api_resumen('token-falso')) || ''), 'token falso rechazado');
+G.api_guardarMiembro(tA, { email: 'coordi@centro.test', nombre: 'María Coordinadora', rol: 'coordinacion' });
+G.api_guardarMiembro(tA, { email: 'firma2@centro.test', nombre: 'Consuelo Burgos Bolós', rol: 'firmante' });
+comprobar(estado.correos.some(c => c.para === 'coordi@centro.test' && /acceso/i.test(c.asunto)), 'correo de bienvenida');
+comprobar(/propietaria/.test(lanza(() => G.api_guardarMiembro(tA, { email: PROP, nombre: 'x', rol: 'firmante' })) || ''), 'la propietaria no pierde la administración');
+G.api_guardarFirmantes(tA, [{ cargo: 'Servicio de Pastoral y Compromiso Solidario', nombre: 'Andrés García Pozas', email: PROP },
+  { cargo: 'Vº Bº Directora Adjunta', nombre: 'Consuelo Burgos Bolós', email: 'firma2@centro.test' }]);
+comprobar(/no está en el equipo/.test(lanza(() => G.api_guardarFirmantes(tA, [{ cargo: 'a', nombre: 'b', email: 'nadie@x.test' }])) || ''), 'firmante debe ser del equipo');
+const tC = entrar('coordi@centro.test');
+const tF = entrar('firma2@centro.test');
+comprobar(/SIN_PERMISO/.test(lanza(() => G.api_inscripciones(tF, 'A-001')) || ''), 'la firmante no ve inscripciones');
+comprobar(/SIN_PERMISO/.test(lanza(() => G.api_equipo(tC)) || ''), 'coordinación no gestiona el equipo');
 
-const idDe = (pre) => Object.values(estado.items).find(i => i.titulo.startsWith(pre)).getId();
-let nResp = 0;
-function responder({ nombre, apellidos, dni, email, roles, valores, comentario = '' }) {
-  const resp = [[idDe('Nombre'), nombre], [idDe('Apellidos'), apellidos], [idDe('DNI'), dni],
-    [idDe('¿En qué actividades'), roles], [idDe('Valora'), valores], [idDe('¿Qué te ha'), comentario], [idDe('Boletín'), []]];
-  const id = 'resp' + (++nResp);
-  G.alEnviarFormulario({ response: { getId: () => id, getTimestamp: () => new Date('2026-11-10T10:00:00'), getRespondentEmail: () => email,
-    getItemResponses: () => resp.map(([iid, r]) => ({ getItem: () => ({ getId: () => iid }), getResponse: () => r })) } });
-}
-responder({ nombre: 'lucía', apellidos: 'martínez de la torre', dni: '12345678z', email: 'lucia@alumnos.test', roles: ['Participante', 'Organización'], valores: ['5', '4'], comentario: 'Me llevo la calma' });
-responder({ nombre: 'Pablo', apellidos: 'Ruiz', dni: '87654321A', email: 'pablo@alumnos.test', roles: ['Participante', null], valores: ['3', null] });
-responder({ nombre: 'Pablo', apellidos: 'Ruiz', dni: '87654321X', email: 'pablo@alumnos.test', roles: ['Participante', null], valores: [null, null] });
-responder({ nombre: 'Lucía', apellidos: 'Martínez de la Torre', dni: '12345678Z', email: 'otra@mal.test', roles: ['Participante', null], valores: [null, null] });
+// ── 3. Actividades
+const a1 = G.api_guardarActividad(tC, { nombre: 'Jornadas de Justicia y Solidaridad', tipo: 'Jornada', fechas: 'los días 18 y 19 de marzo de 2027', ects: 1, abierta: true });
+const a2 = G.api_guardarActividad(tC, { nombre: 'Retiro de Adviento', tipo: 'Retiro', fechas: 'los días 12 y 13 de diciembre de 2026', horas: 12, abierta: true });
+comprobar(a1 === 'A-001' && a2 === 'A-002', 'IDs de actividad');
+comprobar(G.api_publicoActividades().actividades.length === 2, 'actividades abiertas en la página pública');
 
-const shP = hoja('Participaciones');
-const filasP = () => shP.getRange(2, 1, shP.getLastRow() - 1, 16).getValues();
-comprobar(filasP().length === 3, 'participaciones (DNI malo descartado, duplicado ignorado)');
-comprobar(boveda.getLastRow() === 3 && String(boveda.getRange(2, 5).getValue()) === 'lucia@alumnos.test', 'bóveda: 2 personas, correo no sobrescrito');
-comprobar(estado.respuestasBorradas.length === 4, 'respuestas borradas del formulario');
-comprobar(hoja('Valoraciones').getLastRow() === 3, 'valoraciones anónimas');
+// ── 4. Inscripción pública con confirmación por correo
+const inscribir = (o) => G.api_publicoInscribir(Object.assign({ consentimiento: true, consentimiento9: true }, o));
+comprobar(/DNI/.test(lanza(() => inscribir({ nombre: 'Pablo', apellidos: 'Ruiz', dni: '87654321A', email: 'pablo@alumnos.test', actividades: [{ id: a1, rol: 'Participante' }] })) || ''), 'DNI con letra mala rechazado');
+comprobar(/consentimientos/.test(lanza(() => G.api_publicoInscribir({ nombre: 'P', apellidos: 'R', dni: '87654321X', email: 'p@a.test', actividades: [{ id: a1, rol: 'Participante' }] })) || ''), 'sin consentimientos no se acepta');
+comprobar(lanza(() => inscribir({ web: 'spam', nombre: 'P', apellidos: 'R', dni: '87654321X', email: 'p@a.test', actividades: [{ id: a1, rol: 'Participante' }] })) !== null, 'campo trampa para robots');
+inscribir({ nombre: 'lucía', apellidos: 'martínez de la torre', dni: '12345678z', email: 'Lucia@Alumnos.test',
+  actividades: [{ id: a1, rol: 'Participante', valor: 5 }, { id: a2, rol: 'Organización', valor: 4 }], comentario: 'Me llevo la calma', citable: true });
+inscribir({ nombre: 'Pablo', apellidos: 'Ruiz', dni: '87654321X', email: 'pablo@alumnos.test', actividades: [{ id: a1, rol: 'Participante' }] });
+comprobar(G.leer_('Inscripciones').length === 0, 'nada se registra hasta confirmar');
+const enlace = (para) => estado.correos.filter(c => c.para === para && /Confirma/.test(c.asunto)).at(-1).html.match(/p=confirmar&t=([0-9a-f]+)/)[1];
+const tokLucia = enlace('lucia@alumnos.test');
+const conf = G.doGet({ parameter: { p: 'confirmar', t: tokLucia } }).vars;
+comprobar(JSON.parse(conf.datosJs).ok === true && JSON.parse(conf.tipoJs) === 'confirmar', 'confirmación por enlace');
+comprobar(JSON.parse(G.doGet({ parameter: { p: 'confirmar', t: tokLucia } }).vars.datosJs).ok === false, 'el enlace es de un solo uso');
+G.doGet({ parameter: { p: 'confirmar', t: enlace('pablo@alumnos.test') } });
+comprobar(G.leer_('Inscripciones').length === 3 && G.leer_('Valoraciones').length === 2, '3 inscripciones y 2 valoraciones anónimas');
+comprobar(G.leer_('Inscripciones')[0].nombre === 'Lucía Martínez de la Torre', 'nombre capitalizado');
+inscribir({ nombre: 'Lucía', apellidos: 'Martínez de la Torre', dni: '12345678Z', email: 'otra@mal.test', actividades: [{ id: a1, rol: 'Participante' }] });
+G.doGet({ parameter: { p: 'confirmar', t: enlace('otra@mal.test') } });
+comprobar(G.leer_('Inscripciones').length === 3, 'no se duplica la inscripción de la misma persona');
+comprobar(G.leerBoveda_('Personas')[0].email === 'lucia@alumnos.test' && /correo distinto/.test(G.leerBoveda_('Personas')[0].avisos), 'no se sobrescribe el correo y queda aviso');
+for (let k = 0; k < 3; k++) inscribir({ nombre: 'Pablo', apellidos: 'Ruiz', dni: '87654321X', email: 'pablo@alumnos.test', actividades: [{ id: a1, rol: 'Participante' }] });
+comprobar(/varias solicitudes/.test(lanza(() => inscribir({ nombre: 'Pablo', apellidos: 'Ruiz', dni: '87654321X', email: 'pablo@alumnos.test', actividades: [{ id: a1, rol: 'Participante' }] })) || ''), 'límite de solicitudes por correo y día');
 
-// ── 3. Editor: permisos
-estado.usuario = 'otra.persona@centro.test';
-comprobar(/SIN_PERMISO/.test(lanza(() => G.api_cola('A-001')) || ''), 'el editor rechaza a quien no es propietario');
-estado.usuario = 'coordinacion@centro.test';
+// ── 5. Validar
+const ins1 = G.api_inscripciones(tC, a1);
+comprobar(ins1.length === 2 && ins1[0].dniOculto === '•••••678Z' && ins1[0].emailOculto.indexOf('lucia@') < 0, 'DNI y correo enmascarados');
+comprobar(G.api_revelarDni(tC, ins1[0].reg) === '12345678Z' && G.leer_('Registro').some(r => r.accion === 'DNI consultado'), 'ver el DNI queda registrado');
+comprobar(G.api_cambiarInscripciones(tC, ins1.map(i => i.reg), { estado: 'validada' }) === 2, 'validar en lote');
+G.api_cambiarInscripciones(tC, [ins1[0].reg], { rol: 'Coordinación' });
+G.api_cambiarInscripciones(tC, G.api_inscripciones(tC, a2).map(i => i.reg), { estado: 'validada' });
 
-const ini = G.api_inicio();
-comprobar(ini.actividades.length === 2 && ini.firmantes.length === 2 && ini.firmantes[1].nombre === 'Consuelo Burgos Bolós', 'api_inicio');
-comprobar(JSON.stringify(ini).indexOf('@') < 0, 'api_inicio no expone correos');
-
-// ── 4. Diseño por actividad
-G.api_guardarDiseno('A-001', { plantilla: 'marco', color: '#5b2c83', descripcion: 'Texto **IA**' }, true);
-comprobar(G.api_diseno('A-001').plantilla === 'marco', 'diseño guardado y leído');
-comprobar(G.api_diseno('A-002').plantilla === 'marco', 'diseño base para el resto');
-comprobar(String(shA.getRange(2, G.A.DISENO).getValue()).includes('Personalizado'), 'estado de diseño en Actividades');
-const idImg = G.api_subirImagen(Buffer.from('fake').toString('base64'), 'image/jpeg', 'Fondo prueba');
-comprobar(G.api_imagen(idImg).base64 === Buffer.from('fake').toString('base64'), 'subir y leer imagen de diseño');
-const ajeno = archivoFalso('secreto.pdf', 'x', carpetas.archivo, 'propietario');
-comprobar(/no pertenece/.test(lanza(() => G.api_imagen(ajeno.getId())) || ''), 'api_imagen no sirve archivos fuera de la carpeta de diseño');
-comprobar(/JPG o PNG/.test(lanza(() => G.api_subirImagen('eA==', 'application/pdf', 'x')) || ''), 'solo imágenes');
-
-// ── 5. Validar y generar con el motor real
-filasP().forEach((_, i) => shP.getRange(i + 2, G.P.CERT).setValue(true));
-G.onEdit({ range: shP.getRange(2, G.P.CERT, 3, 1) });
-comprobar(filasP().every(f => f[G.P.ESTADO - 1] === G.EST.EN_COLA), 'estado listo al marcar');
-const cola1 = G.api_cola('A-001');
-comprobar(cola1.length === 2 && cola1[0].dni === '12345678Z', 'cola con datos de la bóveda');
-
+// ── 6. Diseño y generación con el motor real
+G.api_guardarDiseno(tC, a1, { plantilla: 'cabecera', descripcion: 'Texto de la **IA**' }, true);
+comprobar(G.api_diseno(tC, a1).descripcion === 'Texto de la **IA**' && G.api_diseno(tC, a2).plantilla === 'cabecera', 'diseño propio y base');
+const ini = G.api_inicioEditor(tC);
+comprobar(ini.firmantes.length === 2 && ini.firmantes[1].nombre === 'Consuelo Burgos Bolós', 'firmantes en el editor');
 const fuentes = {}; for (const [k, e] of Object.entries(Motor.ESTILOS)) fuentes[k] = fs.readFileSync(require.resolve(`@expo-google-fonts/open-sans/${e}/OpenSans_${e}.ttf`));
 const medir = await Motor.crearMedidor(PDFLib, fontkit, fuentes);
 const qr = (t) => { const q = qrgen(0, 'M'); q.addData(t); q.make(); const n = q.getModuleCount(); return Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => q.isDark(r, c))); };
-async function pdfPara(p, codigo) {
-  const r = Motor.componer(G.api_diseno('A-001'), { nombre: p.nombre, apellidos: p.apellidos, dni: p.dni, actividad: 'Retiro', fechas: 'el 7 de noviembre', rol: p.rol, codigo, url: ini.url, firmantes: ini.firmantes }, medir, {}, qr);
-  return Buffer.from(await Motor.aPdf(PDFLib, fontkit, r.ops, fuentes, {})).toString('base64');
+const pdfPara = async (p, codigo, act) => Buffer.from(await Motor.aPdf(PDFLib, fontkit, Motor.componer(G.api_diseno(tC, act), { nombre: p.nombre, apellidos: p.apellidos, dni: p.dni, actividad: 'X', fechas: 'f', rol: p.rol, codigo, url: ini.url, firmantes: ini.firmantes }, medir, {}, qr).ops, fuentes, {})).toString('base64');
+for (const act of [a1, a2]) {
+  const cola = G.api_cola(tC, act);
+  const cod = G.api_reservar(tC, cola.map(p => p.reg));
+  comprobar(JSON.stringify(G.api_reservar(tC, cola.map(p => p.reg))) === JSON.stringify(cod), 'reservar dos veces da los mismos códigos (' + act + ')');
+  for (const p of cola) {
+    const cambios = p.nombre === 'Pablo' ? { apellidos: 'Ruiz Gómez' } : null;
+    G.api_guardarPdf(tC, p.reg, cod[p.reg], await pdfPara(p, cod[p.reg], act), cambios);
+  }
 }
-const codigos = G.api_reservar(cola1.map(p => p.reg));
-comprobar(Object.values(codigos).every(c => /^SAFA-PAS-2627-[A-Z2-9]{6}$/.test(c)), 'códigos reservados');
-comprobar(JSON.stringify(G.api_reservar(cola1.map(p => p.reg))) === JSON.stringify(codigos), 'reservar de nuevo devuelve los mismos códigos (tanda interrumpida)');
-comprobar(/no es un PDF/.test(lanza(() => G.api_guardarPdf(cola1[0].reg, codigos[cola1[0].reg], Buffer.from('hola').toString('base64'), null)) || ''), 'rechaza lo que no es PDF');
-comprobar(/no es válido/.test(lanza(() => G.api_guardarPdf(cola1[0].reg, codigos[cola1[0].reg], 'JVBERi0=', { dni: '12345678A' })) || ''), 'rechaza DNI corregido no válido');
-G.api_guardarPdf(cola1[0].reg, codigos[cola1[0].reg], await pdfPara(cola1[0], codigos[cola1[0].reg]), { apellidos: 'Martínez de la Torre López', rol: 'Coordinación' });
-G.api_guardarPdf(cola1[1].reg, codigos[cola1[1].reg], await pdfPara(cola1[1], codigos[cola1[1].reg]), null);
-comprobar(String(boveda.getRange(2, 4).getValue()) === 'Martínez de la Torre López', 'corrección guardada en la bóveda');
-comprobar(filasP()[0][G.P.NOMBRE - 1] === 'Lucía Martínez de la Torre López' && filasP()[0][G.P.ROL - 1] === 'Coordinación', 'corrección reflejada en Participaciones');
-comprobar(/ya no está pendiente/.test(lanza(() => G.api_guardarPdf(cola1[0].reg, codigos[cola1[0].reg], 'JVBERi0=', null)) || ''), 'no se guarda dos veces');
-G.api_finTanda(2);
-comprobar(estado.correos.some(c => c.para === 'coordinacion@centro.test' && c.asunto.startsWith('Certificados pendientes')), 'aviso al firmante 1');
-const cola2 = G.api_cola('A-002');
-const c2 = G.api_reservar(cola2.map(p => p.reg));
-G.api_guardarPdf(cola2[0].reg, c2[cola2[0].reg], await pdfPara(cola2[0], c2[cola2[0].reg]), null);
-comprobar(G.api_cola('A-001').length === 0 && G.api_cola('A-002').length === 0, 'colas vacías tras generar');
+comprobar(G.leerBoveda_('Personas')[1].apellidos === 'Ruiz Gómez' && G.leer_('Inscripciones').some(i => i.nombre === 'Pablo Ruiz Gómez'), 'corrección guardada en bóveda e inscripciones');
+G.api_finTanda(tC, 3);
+comprobar(estado.correos.some(c => c.para === PROP && /pendientes de tu firma/.test(c.asunto)), 'aviso al primer firmante');
 
-// ── 6. Firmas
-const enCarpeta = (id) => Object.values(estado.archivos).filter(f => f.carpeta === id && !f.papelera);
-const firmar = (f, n) => Buffer.concat([f.bytes, Buffer.from('\n/ByteRange [0 1 2 3]'.repeat(n))]);
-const b1 = enCarpeta(carpetas.bandeja[0]);
-comprobar(b1.length === 3 && b1.every(f => /^SAFA-PAS-2627-[A-Z2-9]{6} · /.test(f.nombre)), 'PDF en «Para firmar» nombrados por código');
-b1.forEach(f => archivoFalso(f.nombre.replace('.pdf', '_signed.pdf'), firmar(f, 1), carpetas.entrega[0], 'propietario'));
-archivoFalso('documento cualquiera.pdf', Buffer.from('x'), carpetas.entrega[0], 'propietario');
-G.tareaPeriodica();
-comprobar(filasP().every(f => f[G.P.FIRMAS - 1] === 1 && String(f[G.P.ESTADO - 1]).includes('Firma 2 de 2')), 'pasan al firmante 2');
-comprobar(estado.correos.some(c => c.para === 'firmante2@centro.test'), 'aviso al firmante 2');
-const b2 = enCarpeta(carpetas.bandeja[1]);
-archivoFalso(b2[0].nombre, b2[0].bytes, carpetas.entrega[1], 'consuelo');
-b2.slice(1).forEach(f => archivoFalso(f.nombre.replace('.pdf', '_signed.pdf'), firmar(f, 1), carpetas.entrega[1], 'consuelo'));
-const antes = estado.correos.length;
-G.tareaPeriodica();
-const enviados = estado.correos.slice(antes).filter(c => c.asunto.startsWith('Tu certificado'));
-comprobar(enviados.length === 2 && enviados.every(c => c.adjuntos.length === 1), 'enviados 2 certificados con PDF');
-comprobar(filasP().some(f => String(f[G.P.ESTADO - 1]).includes('no contiene la firma')), 'el PDF sin segunda firma queda en Revisar');
-G.tareaPeriodica();
-comprobar(estado.correos.filter(c => c.asunto.startsWith('Tu certificado')).length === 2, 'nada se envía dos veces');
+// ── 7. Firmas por subida
+const firmar = (b64, n) => Buffer.concat([Buffer.from(b64, 'base64'), Buffer.from('\n/ByteRange [0 1 2 3]'.repeat(n))]).toString('base64');
+const misA = G.api_certificados(tA, { misFirmas: true });
+comprobar(misA.length === 3, 'la primera firmante ve 3 pendientes');
+comprobar(G.api_certificados(tF, {}).length === 0, 'la segunda aún no ve ninguno');
+comprobar(/SIN_PERMISO/.test(lanza(() => G.api_pdf(tF, misA[0].codigo)) || ''), 'la segunda no puede descargar lo que no le toca');
+const sinFirma = G.api_subirFirmado(tA, misA[0].codigo + ' · X.pdf', G.api_pdf(tA, misA[0].codigo).base64);
+comprobar(sinFirma.ok === false && /no contiene la firma/.test(sinFirma.motivo), 'un PDF sin firmar no avanza');
+comprobar(G.api_subirFirmado(tA, 'otro.pdf', 'JVBERi0=').ok === false, 'un archivo sin código no avanza');
+misA.forEach(c => { const r = G.api_subirFirmado(tA, c.codigo + ' · X_signed.pdf', firmar(G.api_pdf(tA, c.codigo).base64, 1)); comprobar(r.ok && r.siguiente === 'Consuelo Burgos Bolós', 'firma 1 → pasa a Consuelo (' + c.codigo + ')'); });
+G.api_finSubida(tA);
+comprobar(estado.correos.some(c => c.para === 'firma2@centro.test' && /pendientes de tu firma/.test(c.asunto)), 'aviso a la segunda firmante');
+const misF = G.api_certificados(tF, {});
+comprobar(misF.length === 3, 'la segunda firmante ve 3');
+comprobar(G.api_enviarmeZip(tF) === 3 && estado.correos.some(c => c.para === 'firma2@centro.test' && c.adjuntos.length === 1 && /ZIP/.test(c.asunto)), 'ZIP por correo');
+comprobar(G.api_subirFirmado(tF, misF[0].codigo + '.pdf', firmar(G.api_pdf(tF, misF[0].codigo).base64, 0)).ok === false, 'sin la 2.ª firma no avanza');
+const antesEnv = estado.correos.length;
+misF.forEach(c => { const r = G.api_subirFirmado(tF, c.codigo + '_signed.pdf', firmar(G.api_pdf(tF, c.codigo).base64, 1)); comprobar(r.ok && r.enviado, 'firma 2 → enviado (' + c.codigo + ')'); });
+const env = estado.correos.slice(antesEnv).filter(c => /Tu certificado/.test(c.asunto));
+comprobar(env.length === 3 && env.every(c => c.adjuntos.length === 1) && env.some(c => c.para === 'lucia@alumnos.test'), '3 certificados enviados con PDF');
+comprobar(G.api_subirFirmado(tF, misF[0].codigo + '_signed.pdf', firmar('JVBERi0=', 2)).ok === false, 'nada se envía dos veces');
 
-// ── 7. Verificación pública
-const env = filasP().find(f => f[G.P.ESTADO - 1] === G.EST.ENVIADO);
-const pag = G.doGet({ parameter: { c: env[G.P.CODIGO - 1] } }).html;
-comprobar(pag.includes('Certificado auténtico') && !/12345678|87654321|@alumnos|Martínez/.test(pag), 'verificación sin datos personales');
+// ── 8. Verificación pública, rehacer y anular
+const cod = misF[0].codigo;
+const ver = JSON.parse(G.doGet({ parameter: { c: cod.toLowerCase() } }).vars.datosJs);
+comprobar(ver.r.estado === 'ok' && !/12345678|87654321|@alumnos|Martínez|Ruiz/.test(JSON.stringify(ver)), 'verificación sin datos personales');
+comprobar(JSON.parse(G.doGet({ parameter: { p: 'verificar', c: 'SAFA-PAS-2627-AAAAAA' } }).vars.datosJs).r.estado === 'no', 'código inexistente');
+comprobar(/anúlalo/.test(lanza(() => G.api_rehacer(tC, cod)) || ''), 'no se rehace uno enviado');
+G.api_reenviar(tC, cod);
+G.api_anular(tC, cod);
+comprobar(JSON.parse(G.doGet({ parameter: { c: cod } }).vars.datosJs).r.estado === 'anulado', 'anulado se ve en la verificación');
 
-// ── 8. Reglas de privacidad
-const textoGestion = JSON.stringify(Object.values(gestion.hojas).map(s => s.datos));
-comprobar(!/12345678Z|87654321X/.test(textoGestion), 'ningún DNI en la hoja de gestión');
-comprobar(!/@alumnos\.test|@mal\.test/.test(textoGestion), 'ningún correo del alumnado en la hoja de gestión');
+// ── 9. Privacidad
+const textoDatos = JSON.stringify(Object.values(estado.libros[estado.props.LIBRO_DATOS].hojas).map(s => s.datos));
+comprobar(!/12345678Z|87654321X/.test(textoDatos), 'ningún DNI en el libro de datos');
+comprobar(!/@alumnos\.test|@mal\.test/.test(textoDatos), 'ningún correo del alumnado en el libro de datos');
 comprobar(Object.values(estado.archivos).every(f => !/\d{8}[A-Z]/.test(f.nombre)), 'ningún DNI en nombres de archivo');
 comprobar(estado.correos.every(c => !/\d{8}[A-Z]|Lucía|Pablo/.test(c.asunto)), 'asuntos sin datos personales');
-
-// ── 9. Archivo único y aviso de actualización
-comprobar(/const LOGOS = /.test(G.incluir_('Logos')) && /Motor = M|module\.exports/.test(G.incluir_('Motor')), 'páginas incrustadas en el archivo único');
-const urlVersion = (u) => u.startsWith('https://raw.githubusercontent.com/agarcia-poz/certificados-pastoral/main/dist/version.json');
-const servir = (version) => { ctx.UrlFetchApp.fetch = (url) => ({ getResponseCode: () => urlVersion(url) ? 200 : 404, getContentText: () => JSON.stringify({ version, fecha: '2026-11-01', novedades: '- Algo nuevo' }) }); };
-servir('2.2.0'); estado.dialogos = [];
-G.actualizarApp();
-comprobar(/Ya tienes la última versión/.test(estado.alertas.at(-1)), 'actualizar: misma versión');
-servir('2.10.0');
-G.actualizarApp();
-comprobar(estado.dialogos.length === 1 && /CertificadosPastoral\.gs/.test(estado.dialogos[0]) && /Algo nuevo/.test(estado.dialogos[0]), 'actualizar: versión nueva con novedades y enlace (2.10 > 2.2)');
-servir('1.9.9');
-G.actualizarApp();
-comprobar(/Ya tienes la última versión/.test(estado.alertas.at(-1)), 'actualizar: no ofrece versiones anteriores');
+comprobar(/terminados/.test(lanza(() => G.api_anonimizar(tA, '2026-27')) || ''), 'no se anonimiza el curso en marcha');
+const resumen = G.api_resumen(tA);
+comprobar(resumen.enviadosCurso === 2 && /p=inscripcion/.test(resumen.urlInscripcion), 'resumen de inicio');
 
 console.log(`\n${ok} comprobaciones correctas, ${fallos} fallos`);
 process.exit(fallos ? 1 : 0);

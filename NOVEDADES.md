@@ -1,5 +1,12 @@
 # Novedades
 
+## 3.0.0 (2026-10-21)
+- Aplicación web propia: panel del equipo, inscripción pública y verificación, sin hojas de cálculo a la vista.
+- Acceso del equipo con código por correo y tres papeles: Administración, Coordinación y Firmante.
+- Inscripción del alumnado en una página propia, con confirmación por correo (sustituye al formulario de Google).
+- Firmas dentro de la app: descargar en ZIP, firmar con Autofirma y arrastrar los PDF firmados.
+- Instalación: pegar un archivo e implementarlo como aplicación web; un asistente hace el resto.
+
 ## 2.2.2 (2026-10-20)
 - Si la instalación falla, el mensaje dice la versión, el paso y la línea.
 - Abrir o cerrar el formulario ya no detiene la instalación.
